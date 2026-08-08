@@ -132,3 +132,23 @@ textarea {
     transition: none !important;
   }
 }
+
+/* Nav: on narrow screens, drop the full title (icon alone is enough to
+   identify the brand next to "Calendar"/"Admin"), tighten spacing, and let
+   the row wrap instead of clipping/overlapping at a fixed height. */
+@media (max-width: 640px) {
+  .nav-inner {
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .nav-title {
+    display: none;
+  }
+  .nav-links {
+    gap: 14px !important;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+}

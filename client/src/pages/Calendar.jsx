@@ -6,6 +6,20 @@ import EventModal from "../components/EventModal";
 
 const INTL_LOCALE = { en: "en-US", zh: "zh-CN", ja: "ja-JP" };
 const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+const MOBILE_BREAKPOINT = "(max-width: 640px)";
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(MOBILE_BREAKPOINT).matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_BREAKPOINT);
+    const onChange = (e) => setIsMobile(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return isMobile;
+}
 
 function daysInMonth(year, month) {
   return new Date(year, month, 0).getDate();
@@ -18,6 +32,7 @@ function firstWeekdayIndex(year, month) {
 
 export default function Calendar() {
   const { t, pickLang, locale } = useI18n();
+  const isMobile = useIsMobile();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
@@ -92,30 +107,45 @@ export default function Calendar() {
         </button>
       </div>
 
-      <div style={styles.weekHeader}>
-        {WEEKDAY_KEYS.map((k) => (
-          <div key={k} style={styles.weekHeaderCell}>
-            {t(`calendar.${k}`)}
+      {isMobile ? (
+        <AgendaList
+          total={total}
+          eventsByDay={eventsByDay}
+          onSelect={setSelectedEventId}
+          pickLang={pickLang}
+          t={t}
+          locale={locale}
+          year={year}
+          month={month}
+        />
+      ) : (
+        <>
+          <div style={styles.weekHeader}>
+            {WEEKDAY_KEYS.map((k) => (
+              <div key={k} style={styles.weekHeaderCell}>
+                {t(`calendar.${k}`)}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      <div style={styles.grid}>
-        {cells.map((d, i) =>
-          d === null ? (
-            <div key={i} style={styles.emptyCell} />
-          ) : (
-            <DayCell
-              key={i}
-              day={d}
-              events={eventsByDay[d] || []}
-              onSelect={setSelectedEventId}
-              pickLang={pickLang}
-              t={t}
-            />
-          )
-        )}
-      </div>
+          <div style={styles.grid}>
+            {cells.map((d, i) =>
+              d === null ? (
+                <div key={i} style={styles.emptyCell} />
+              ) : (
+                <DayCell
+                  key={i}
+                  day={d}
+                  events={eventsByDay[d] || []}
+                  onSelect={setSelectedEventId}
+                  pickLang={pickLang}
+                  t={t}
+                />
+              )
+            )}
+          </div>
+        </>
+      )}
 
       {!loading && events.length === 0 && (
         <p style={{ color: "var(--text-dim)", textAlign: "center", marginTop: 40 }}>
@@ -158,6 +188,59 @@ function DayCell({ day, events, onSelect, pickLang, t }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// Mobile: a 7-column grid becomes unusably narrow on a phone (each column
+// only ~50px wide), so instead show a scrollable vertical list of days that
+// actually have events — full-width rows mean event names don't need
+// truncating or a hover tooltip (which doesn't exist on touch anyway); the
+// full name is always visible, and tapping a row opens the same detail modal.
+function AgendaList({ total, eventsByDay, onSelect, pickLang, t, locale, year, month }) {
+  const days = [];
+  for (let d = 1; d <= total; d++) {
+    if (eventsByDay[d] && eventsByDay[d].length > 0) days.push(d);
+  }
+
+  if (days.length === 0) {
+    return <p style={{ color: "var(--text-dim)", textAlign: "center", marginTop: 40 }}>{t("calendar.noEvents")}</p>;
+  }
+
+  return (
+    <div style={styles.agendaList}>
+      {days.map((d) => {
+        const weekday = new Intl.DateTimeFormat(INTL_LOCALE[locale] || "en-US", { weekday: "short" }).format(
+          new Date(year, month - 1, d)
+        );
+        return (
+          <div key={d} style={styles.agendaDay}>
+            <div style={styles.agendaDateCol}>
+              <div style={styles.agendaDayNum}>{d}</div>
+              <div style={styles.agendaWeekday}>{weekday}</div>
+            </div>
+            <div style={styles.agendaEvents}>
+              {eventsByDay[d].map((e) => {
+                const colors = colorVars(e.color);
+                return (
+                  <button
+                    key={e.id}
+                    onClick={() => onSelect(e.id)}
+                    style={{
+                      ...styles.agendaChip,
+                      background: colors.bg,
+                      borderColor: colors.line,
+                    }}
+                  >
+                    <span style={styles.eventTime}>{e.time}</span>
+                    <span style={styles.agendaEventName}>{pickLang(e, "name")}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -205,9 +288,11 @@ const styles = {
   },
   emptyCell: {
     minHeight: 92,
+    minWidth: 0,
   },
   dayCell: {
     minHeight: 92,
+    minWidth: 0, // stop long event text from forcing this grid column wider than its 1fr share
     border: "1px solid var(--line)",
     borderRadius: "var(--radius-s)",
     background: "#fff",
@@ -215,6 +300,7 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: 4,
+    overflow: "hidden",
   },
   dayNum: {
     fontSize: "0.78rem",
@@ -237,6 +323,9 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     lineHeight: 1.2,
+    minWidth: 0,
+    width: "100%",
+    overflow: "hidden",
   },
   eventTime: {
     fontSize: "0.64rem",
@@ -251,5 +340,60 @@ const styles = {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
+  },
+  agendaList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  },
+  agendaDay: {
+    display: "flex",
+    gap: 12,
+    border: "1px solid var(--line)",
+    borderRadius: "var(--radius-s)",
+    background: "#fff",
+    padding: "10px 12px",
+  },
+  agendaDateCol: {
+    flexShrink: 0,
+    width: 40,
+    textAlign: "center",
+    paddingTop: 2,
+  },
+  agendaDayNum: {
+    fontFamily: "var(--font-mono)",
+    fontWeight: 700,
+    fontSize: "1.1rem",
+    color: "var(--ink)",
+    lineHeight: 1.1,
+  },
+  agendaWeekday: {
+    fontSize: "0.68rem",
+    color: "var(--text-dim)",
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+  },
+  agendaEvents: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    minWidth: 0,
+  },
+  agendaChip: {
+    border: "1px solid",
+    borderRadius: 6,
+    padding: "6px 10px",
+    textAlign: "left",
+    cursor: "pointer",
+    display: "flex",
+    flexDirection: "column",
+    lineHeight: 1.3,
+    width: "100%",
+  },
+  agendaEventName: {
+    fontSize: "0.82rem",
+    fontWeight: 600,
+    color: "var(--ink)",
   },
 };

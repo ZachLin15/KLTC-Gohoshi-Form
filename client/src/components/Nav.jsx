@@ -7,12 +7,14 @@ export default function Nav() {
   const { t } = useI18n();
   return (
     <header style={styles.header}>
-      <div className="container" style={styles.inner}>
+      <div className="container nav-inner" style={styles.inner}>
         <NavLink to="/" style={styles.brand}>
           <span style={styles.mark}>卍</span>
-          <span style={styles.title}>{t("app.title")}</span>
+          <span className="nav-title" style={styles.title}>
+            {t("app.title")}
+          </span>
         </NavLink>
-        <nav style={styles.nav}>
+        <nav className="nav-links" style={styles.nav}>
           <NavLink to="/" end style={({ isActive }) => linkStyle(isActive)}>
             {t("nav.calendar")}
           </NavLink>
@@ -49,7 +51,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    height: 64,
+    minHeight: 64,
   },
   brand: {
     display: "flex",
