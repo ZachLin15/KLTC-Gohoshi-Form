@@ -5,7 +5,6 @@
   "lang.en": "English",
   "lang.zh": "中文",
   "lang.ja": "日本語",
-
   "calendar.prevMonth": "上个月",
   "calendar.nextMonth": "下个月",
   "calendar.noEvents": "本月没有活动。",
@@ -18,7 +17,6 @@
   "calendar.fri": "五",
   "calendar.sat": "六",
   "calendar.sun": "日",
-
   "event.rolesTitle": "供仕职位",
   "event.noRoles": "此活动不需要报名供仕。",
   "event.yourName": "您的姓名",
@@ -33,24 +31,21 @@
   "event.errorDuplicate": "您已经报名了当天的一个职位。",
   "event.errorFull": "该职位刚刚已满，请选择其他职位。",
   "event.errorGeneric": "出现错误，请重试。",
-
   "admin.loginTitle": "管理员登录",
   "admin.password": "密码",
   "admin.signIn": "登录",
   "admin.signOut": "登出",
   "admin.wrongPassword": "密码错误。",
-
   "admin.tabs.upload": "上传时间表",
   "admin.tabs.events": "管理活动",
+  "admin.tabs.report": "报名报表",
   "admin.tabs.templates": "职位模板",
-
   "admin.upload.title": "上传每月时间表 PDF",
   "admin.upload.helper": "上传 KLTC 每月时间表 PDF。系统会自动提取标色的活动（黄色、粉色、橙色、绿色）— 保存前请先在下方检查确认。",
   "admin.upload.choose": "选择 PDF",
   "admin.upload.parsing": "正在读取 PDF…",
   "admin.upload.parsed": "已找到 {month} {year} 的 {count} 个标色活动。",
   "admin.upload.error": "无法读取该 PDF。",
-
   "admin.review.title": "保存前请检查",
   "admin.review.day": "日期",
   "admin.review.time": "时间",
@@ -66,7 +61,6 @@
   "admin.review.save": "保存活动",
   "admin.review.saving": "保存中…",
   "admin.review.saved": "已保存 {count} 个活动。",
-
   "admin.events.title": "本月活动",
   "admin.events.selectMonth": "月份",
   "admin.events.edit": "编辑",
@@ -76,7 +70,6 @@
   "admin.events.of": "/",
   "admin.events.removeSignup": "移除",
   "admin.events.noEvents": "本月还没有活动。请先上传时间表。",
-
   "admin.templates.title": "职位模板",
   "admin.templates.helper": "模板定义某类活动的标准供仕职位与名额，方便在检查已上传的时间表时一键套用。",
   "admin.templates.new": "新建模板",
@@ -86,7 +79,6 @@
   "admin.templates.delete": "删除模板",
   "admin.templates.limit": "名额",
   "admin.templates.roleName": "职位名称",
-
   "common.en": "英文",
   "common.zh": "中文",
   "common.ja": "日文",

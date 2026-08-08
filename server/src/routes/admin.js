@@ -373,4 +373,60 @@ router.delete(
   })
 );
 
+// ---------- reports ----------
+async function getMonthReport(year, month) {
+  const eRes = await client.execute({
+    sql: "SELECT * FROM events WHERE year = ? AND month = ? ORDER BY day, time",
+    args: [year, month],
+  });
+  const events = eRes.rows;
+  await attachRolesWithSignups(events);
+  return events;
+}
+
+router.get(
+  "/reports/signups",
+  h(async (req, res) => {
+    const { year, month } = req.query;
+    if (!year || !month) return res.status(400).json({ error: "year and month are required" });
+    res.json(await getMonthReport(year, month));
+  })
+);
+
+function csvEscape(val) {
+  const s = String(val ?? "");
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+router.get(
+  "/reports/signups.csv",
+  h(async (req, res) => {
+    const { year, month } = req.query;
+    if (!year || !month) return res.status(400).json({ error: "year and month are required" });
+    const events = await getMonthReport(year, month);
+
+    const rows = [["Date", "Time", "Event (EN)", "Event (ZH)", "Role (EN)", "Role (ZH)", "Signed up by", "Signed up at"]];
+    for (const e of events) {
+      for (const r of e.roles) {
+        if (r.signups.length === 0) {
+          rows.push([e.day, e.time, e.name_en, e.name_zh, r.name_en, r.name_zh, "", ""]);
+        } else {
+          for (const s of r.signups) {
+            rows.push([e.day, e.time, e.name_en, e.name_zh, r.name_en, r.name_zh, s.name, s.created_at]);
+          }
+        }
+      }
+    }
+
+    const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="kltc-signups-${year}-${String(month).padStart(2, "0")}.csv"`
+    );
+    res.send("\uFEFF" + csv); // BOM so Excel opens UTF-8 (Chinese names) correctly
+  })
+);
+
 module.exports = router;

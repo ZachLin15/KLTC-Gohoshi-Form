@@ -63,6 +63,10 @@ export const api = {
   adminDeleteEvent: (id) => request(`/admin/events/${id}`, { method: "DELETE" }),
   adminDeleteSignup: (id) => request(`/admin/signups/${id}`, { method: "DELETE" }),
 
+  // admin: reports
+  adminGetReport: (year, month) => request(`/admin/reports/signups?year=${year}&month=${month}`),
+  adminReportCsvUrl: (year, month) => `${BASE}/admin/reports/signups.csv?year=${year}&month=${month}`,
+
   // admin: templates
   adminGetTemplates: () => request(`/admin/templates`),
   adminCreateTemplate: (payload) =>

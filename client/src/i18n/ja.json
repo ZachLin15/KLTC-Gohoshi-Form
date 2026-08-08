@@ -5,7 +5,6 @@
   "lang.en": "English",
   "lang.zh": "中文",
   "lang.ja": "日本語",
-
   "calendar.prevMonth": "前の月",
   "calendar.nextMonth": "次の月",
   "calendar.noEvents": "今月の行事はありません。",
@@ -18,7 +17,6 @@
   "calendar.fri": "金",
   "calendar.sat": "土",
   "calendar.sun": "日",
-
   "event.rolesTitle": "御奉仕の役割",
   "event.noRoles": "この行事は御奉仕の申し込みが不要です。",
   "event.yourName": "お名前",
@@ -33,24 +31,21 @@
   "event.errorDuplicate": "この日はすでに他の役割に申し込み済みです。",
   "event.errorFull": "その役割はちょうど満員になりました。他の役割をお選びください。",
   "event.errorGeneric": "エラーが発生しました。もう一度お試しください。",
-
   "admin.loginTitle": "管理者ログイン",
   "admin.password": "パスワード",
   "admin.signIn": "ログイン",
   "admin.signOut": "ログアウト",
   "admin.wrongPassword": "パスワードが正しくありません。",
-
   "admin.tabs.upload": "スケジュールをアップロード",
   "admin.tabs.events": "行事の管理",
+  "admin.tabs.report": "申し込みレポート",
   "admin.tabs.templates": "役割テンプレート",
-
   "admin.upload.title": "月間スケジュール PDF をアップロード",
   "admin.upload.helper": "KLTC の月間スケジュール PDF をアップロードしてください。ハイライトされた行事（黄・ピンク・オレンジ・緑）が自動抽出されます。保存前に必ず内容をご確認ください。",
   "admin.upload.choose": "PDF を選択",
   "admin.upload.parsing": "PDF を読み込み中…",
   "admin.upload.parsed": "{month} {year} のハイライト行事を {count} 件見つけました。",
   "admin.upload.error": "この PDF を読み込めませんでした。",
-
   "admin.review.title": "保存前に確認",
   "admin.review.day": "日",
   "admin.review.time": "時間",
@@ -66,7 +61,6 @@
   "admin.review.save": "行事を保存",
   "admin.review.saving": "保存中…",
   "admin.review.saved": "{count} 件の行事を保存しました。",
-
   "admin.events.title": "今月の行事",
   "admin.events.selectMonth": "月",
   "admin.events.edit": "編集",
@@ -76,7 +70,6 @@
   "admin.events.of": "/",
   "admin.events.removeSignup": "削除",
   "admin.events.noEvents": "今月の行事はまだありません。スケジュールをアップロードしてください。",
-
   "admin.templates.title": "役割テンプレート",
   "admin.templates.helper": "テンプレートは行事の種類ごとの標準的な御奉仕の役割と定員を定義します。アップロードしたスケジュールを確認する際にワンクリックで適用できます。",
   "admin.templates.new": "新しいテンプレート",
@@ -86,7 +79,6 @@
   "admin.templates.delete": "テンプレートを削除",
   "admin.templates.limit": "定員",
   "admin.templates.roleName": "役割名",
-
   "common.en": "英語",
   "common.zh": "中国語",
   "common.ja": "日本語",

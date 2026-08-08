@@ -5,10 +5,12 @@ import AdminLogin from "./AdminLogin";
 import UploadReview from "./UploadReview";
 import ManageEvents from "./ManageEvents";
 import Templates from "./Templates";
+import Report from "./Report";
 
 const TABS = [
   { key: "upload", labelKey: "admin.tabs.upload", Component: UploadReview },
   { key: "events", labelKey: "admin.tabs.events", Component: ManageEvents },
+  { key: "report", labelKey: "admin.tabs.report", Component: Report },
   { key: "templates", labelKey: "admin.tabs.templates", Component: Templates },
 ];
 
