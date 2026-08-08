@@ -12,7 +12,12 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const IS_PROD = process.env.NODE_ENV === "production";
 // comma-separated list of allowed origins, e.g. "https://kltc.onrender.com,https://kltc-signup.org"
-const CLIENT_ORIGINS = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
+// CLIENT_HOST is set by render.yaml (via fromService) to the client's bare
+// onrender.com subdomain; CLIENT_ORIGIN (a full URL) takes precedence if set.
+const CLIENT_ORIGINS = (
+  process.env.CLIENT_ORIGIN ||
+  (process.env.CLIENT_HOST ? `https://${process.env.CLIENT_HOST}.onrender.com` : "http://localhost:5173")
+)
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);

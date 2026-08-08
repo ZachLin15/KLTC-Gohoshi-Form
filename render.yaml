@@ -11,9 +11,13 @@
 # SESSION_SECRET is generated for you automatically.
 #
 # `fromService ... property: host` only gives the bare subdomain (e.g.
-# "kltc-signup-api"), not the full URL — so the api's CLIENT_ORIGIN and the
-# client's VITE_API_URL are built by interpolating that into the start/build
-# command, the same pattern Render's own examples use for cross-service URLs.
+# "kltc-signup-api"), not the full URL. Rather than trying to build the full
+# URL via shell string interpolation in a start/build command (Render's
+# dockerCommand doesn't reliably support that), each service reads the bare
+# host from a plain env var and builds the full URL itself: the API in
+# src/index.js (CLIENT_HOST -> CLIENT_ORIGIN), the client in
+# scripts/prepare-env.js (API_HOST -> VITE_API_URL, written to
+# .env.production before `vite build` runs).
 
 services:
   - type: web
@@ -21,8 +25,6 @@ services:
     runtime: docker
     dockerContext: ./server
     dockerfilePath: ./server/Dockerfile
-    dockerCommand: >-
-      sh -c 'CLIENT_ORIGIN="https://${CLIENT_HOST}.onrender.com" node src/index.js'
     plan: free
     autoDeploy: true
     healthCheckPath: /api/health
@@ -47,8 +49,7 @@ services:
     name: kltc-signup-client
     runtime: static
     rootDir: ./client
-    buildCommand: >-
-      VITE_API_URL="https://${API_HOST}.onrender.com/api" npm install && npm run build
+    buildCommand: npm install && node scripts/prepare-env.cjs && npm run build
     staticPublishPath: ./dist
     autoDeploy: true
     envVars:
@@ -61,4 +62,5 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+
 
