@@ -186,6 +186,7 @@ const styles = {
   weekHeader: {
     display: "grid",
     gridTemplateColumns: "repeat(7, 1fr)",
+    gap: 6,
     marginBottom: 6,
   },
   weekHeaderCell: {

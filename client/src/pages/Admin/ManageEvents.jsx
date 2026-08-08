@@ -3,6 +3,10 @@ import { useI18n } from "../../i18n";
 import { api } from "../../lib/api";
 import { colorVars } from "../../lib/colors";
 
+function emptyRole() {
+  return { name_en: "", name_zh: "", name_ja: "", limit_count: 1 };
+}
+
 export default function ManageEvents() {
   const { t, pickLang } = useI18n();
   const today = new Date();
@@ -12,6 +16,10 @@ export default function ManageEvents() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [draftRoles, setDraftRoles] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [saving, setSaving] = useState(false);
 
   function load() {
     setLoading(true);
@@ -23,16 +31,79 @@ export default function ManageEvents() {
   }
 
   useEffect(load, [year, month]);
+  useEffect(() => {
+    api.adminGetTemplates().then(setTemplates).catch(() => {});
+  }, []);
 
   async function toggleExpand(id) {
     if (expanded === id) {
       setExpanded(null);
       setDetail(null);
+      setEditing(false);
       return;
     }
     setExpanded(id);
+    setEditing(false);
     const d = await api.adminGetEvent(id);
     setDetail(d);
+  }
+
+  function startEditingRoles() {
+    setDraftRoles(
+      detail.roles.map((r) => ({
+        name_en: r.name_en,
+        name_zh: r.name_zh,
+        name_ja: r.name_ja,
+        limit_count: r.limit_count,
+      }))
+    );
+    setEditing(true);
+  }
+
+  function applyTemplate(templateId) {
+    const tpl = templates.find((tp) => String(tp.id) === String(templateId));
+    if (!tpl) return;
+    setDraftRoles(
+      tpl.roles.map((r) => ({
+        name_en: r.name_en,
+        name_zh: r.name_zh,
+        name_ja: r.name_ja,
+        limit_count: r.limit_count,
+      }))
+    );
+  }
+
+  function updateDraftRole(i, patch) {
+    setDraftRoles((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
+  function addDraftRole() {
+    setDraftRoles((prev) => [...prev, emptyRole()]);
+  }
+  function removeDraftRole(i) {
+    setDraftRoles((prev) => prev.filter((_, idx) => idx !== i));
+  }
+
+  async function saveRoles() {
+    setSaving(true);
+    try {
+      await api.adminUpdateEvent(detail.id, {
+        day: detail.day,
+        time: detail.time,
+        name_en: detail.name_en,
+        name_zh: detail.name_zh,
+        name_ja: detail.name_ja,
+        color: detail.color,
+        needs_signup: true,
+        template_id: detail.template_id,
+        roles: draftRoles,
+      });
+      const d = await api.adminGetEvent(detail.id);
+      setDetail(d);
+      setEditing(false);
+      load();
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleDelete(id) {
@@ -41,6 +112,7 @@ export default function ManageEvents() {
     if (expanded === id) {
       setExpanded(null);
       setDetail(null);
+      setEditing(false);
     }
     load();
   }
@@ -79,6 +151,7 @@ export default function ManageEvents() {
         {events.map((e) => {
           const colors = colorVars(e.color);
           const isOpen = expanded === e.id;
+          const isEditingThis = isOpen && editing;
           return (
             <div key={e.id} className="card" style={{ borderLeft: `4px solid ${colors.line}` }}>
               <div style={styles.row} onClick={() => toggleExpand(e.id)}>
@@ -100,8 +173,13 @@ export default function ManageEvents() {
                 </button>
               </div>
 
-              {isOpen && detail && detail.id === e.id && detail.roles.length > 0 && (
+              {isOpen && detail && detail.id === e.id && !isEditingThis && (
                 <div style={styles.rolesPanel}>
+                  {detail.roles.length === 0 && (
+                    <p style={{ color: "var(--text-dim)", fontSize: "0.85rem", margin: 0 }}>
+                      No roles yet.
+                    </p>
+                  )}
                   {detail.roles.map((r) => (
                     <div key={r.id} style={styles.rolePanelRow}>
                       <div style={styles.rolePanelHeader}>
@@ -127,6 +205,81 @@ export default function ManageEvents() {
                       )}
                     </div>
                   ))}
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ alignSelf: "flex-start", padding: "6px 14px", fontSize: "0.82rem" }}
+                    onClick={startEditingRoles}
+                  >
+                    {detail.roles.length === 0 ? "+ " + t("admin.templates.addRole") : t("admin.events.edit") + " " + t("admin.events.roles").toLowerCase()}
+                  </button>
+                </div>
+              )}
+
+              {isEditingThis && (
+                <div style={styles.rolesPanel}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--text-dim)" }}>
+                      {t("admin.review.template")}
+                    </span>
+                    <select defaultValue="" onChange={(ev) => applyTemplate(ev.target.value)}>
+                      <option value="">{t("admin.review.none")}</option>
+                      {templates.map((tp) => (
+                        <option key={tp.id} value={tp.id}>
+                          {tp.name_en}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {draftRoles.map((r, i) => (
+                    <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <input
+                        value={r.name_en}
+                        onChange={(ev) => updateDraftRole(i, { name_en: ev.target.value })}
+                        placeholder="Role (EN)"
+                        style={{ flex: 1 }}
+                      />
+                      <input
+                        value={r.name_zh}
+                        onChange={(ev) => updateDraftRole(i, { name_zh: ev.target.value })}
+                        placeholder="角色 (ZH)"
+                        style={{ flex: 1 }}
+                      />
+                      <input
+                        type="number"
+                        min={1}
+                        value={r.limit_count}
+                        onChange={(ev) => updateDraftRole(i, { limit_count: Number(ev.target.value) })}
+                        style={{ width: 64 }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeDraftRole(i)}
+                        style={{ border: "none", background: "transparent", color: "var(--text-dim)", cursor: "pointer" }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ alignSelf: "flex-start", padding: "6px 14px", fontSize: "0.82rem" }}
+                    onClick={addDraftRole}
+                  >
+                    + {t("admin.templates.addRole")}
+                  </button>
+
+                  <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                    <button className="btn btn-gold" disabled={saving} onClick={saveRoles}>
+                      {saving ? t("admin.review.saving") : t("admin.templates.save")}
+                    </button>
+                    <button className="btn btn-ghost" onClick={() => setEditing(false)}>
+                      {t("common.cancel")}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
