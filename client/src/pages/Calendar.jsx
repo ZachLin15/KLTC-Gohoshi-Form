@@ -1,0 +1,254 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { useI18n } from "../i18n";
+import { api } from "../lib/api";
+import { colorVars } from "../lib/colors";
+import EventModal from "../components/EventModal";
+
+const INTL_LOCALE = { en: "en-US", zh: "zh-CN", ja: "ja-JP" };
+const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+
+function daysInMonth(year, month) {
+  return new Date(year, month, 0).getDate();
+}
+// Monday-first weekday index (0=Mon..6=Sun) for the 1st of the month
+function firstWeekdayIndex(year, month) {
+  const jsDay = new Date(year, month - 1, 1).getDay(); // 0=Sun..6=Sat
+  return (jsDay + 6) % 7;
+}
+
+export default function Calendar() {
+  const { t, pickLang, locale } = useI18n();
+  const today = new Date();
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth() + 1);
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedEventId, setSelectedEventId] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    api
+      .getEvents(year, month)
+      .then((data) => !cancelled && setEvents(data))
+      .catch(() => !cancelled && setEvents([]))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [year, month]);
+
+  const monthLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat(INTL_LOCALE[locale] || "en-US", { month: "long" }).format(
+        new Date(year, month - 1, 1)
+      ),
+    [year, month, locale]
+  );
+
+  const eventsByDay = useMemo(() => {
+    const map = {};
+    events.forEach((e) => {
+      (map[e.day] = map[e.day] || []).push(e);
+    });
+    return map;
+  }, [events]);
+
+  function goPrev() {
+    if (month === 1) {
+      setMonth(12);
+      setYear((y) => y - 1);
+    } else {
+      setMonth((m) => m - 1);
+    }
+  }
+  function goNext() {
+    if (month === 12) {
+      setMonth(1);
+      setYear((y) => y + 1);
+    } else {
+      setMonth((m) => m + 1);
+    }
+  }
+
+  const total = daysInMonth(year, month);
+  const leadBlanks = firstWeekdayIndex(year, month);
+  const cells = [];
+  for (let i = 0; i < leadBlanks; i++) cells.push(null);
+  for (let d = 1; d <= total; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  return (
+    <div className="container" style={{ paddingTop: 32, paddingBottom: 60 }}>
+      <div style={styles.monthBar}>
+        <button className="btn-ghost btn" onClick={goPrev} aria-label={t("calendar.prevMonth")}>
+          ←
+        </button>
+        <h1 style={styles.monthTitle}>
+          {monthLabel} <span style={styles.year}>{year}</span>
+        </h1>
+        <button className="btn-ghost btn" onClick={goNext} aria-label={t("calendar.nextMonth")}>
+          →
+        </button>
+      </div>
+
+      <div style={styles.weekHeader}>
+        {WEEKDAY_KEYS.map((k) => (
+          <div key={k} style={styles.weekHeaderCell}>
+            {t(`calendar.${k}`)}
+          </div>
+        ))}
+      </div>
+
+      <div style={styles.grid}>
+        {cells.map((d, i) =>
+          d === null ? (
+            <div key={i} style={styles.emptyCell} />
+          ) : (
+            <DayCell
+              key={i}
+              day={d}
+              events={eventsByDay[d] || []}
+              onSelect={setSelectedEventId}
+              pickLang={pickLang}
+              t={t}
+            />
+          )
+        )}
+      </div>
+
+      {!loading && events.length === 0 && (
+        <p style={{ color: "var(--text-dim)", textAlign: "center", marginTop: 40 }}>
+          {t("calendar.noEvents")}
+        </p>
+      )}
+
+      {selectedEventId && (
+        <EventModal
+          eventId={selectedEventId}
+          monthLabel={monthLabel}
+          onClose={() => setSelectedEventId(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function DayCell({ day, events, onSelect, pickLang, t }) {
+  return (
+    <div style={styles.dayCell}>
+      <div style={styles.dayNum}>{day}</div>
+      <div style={styles.dayEvents}>
+        {events.map((e) => {
+          const colors = colorVars(e.color);
+          return (
+            <button
+              key={e.id}
+              onClick={() => onSelect(e.id)}
+              style={{
+                ...styles.eventChip,
+                background: colors.bg,
+                borderColor: colors.line,
+              }}
+              title={pickLang(e, "name")}
+            >
+              <span style={styles.eventTime}>{e.time}</span>
+              <span style={styles.eventName}>{pickLang(e, "name")}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+const styles = {
+  monthBar: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 20,
+    marginBottom: 24,
+  },
+  monthTitle: {
+    fontFamily: "var(--font-display)",
+    fontSize: "1.7rem",
+    fontWeight: 600,
+    color: "var(--ink)",
+    minWidth: 220,
+    textAlign: "center",
+    margin: 0,
+  },
+  year: {
+    color: "var(--gold)",
+    fontWeight: 500,
+  },
+  weekHeader: {
+    display: "grid",
+    gridTemplateColumns: "repeat(7, 1fr)",
+    marginBottom: 6,
+  },
+  weekHeaderCell: {
+    textAlign: "center",
+    fontSize: "0.78rem",
+    fontWeight: 700,
+    color: "var(--text-dim)",
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+    padding: "4px 0",
+  },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(7, 1fr)",
+    gap: 6,
+  },
+  emptyCell: {
+    minHeight: 92,
+  },
+  dayCell: {
+    minHeight: 92,
+    border: "1px solid var(--line)",
+    borderRadius: "var(--radius-s)",
+    background: "#fff",
+    padding: "6px 6px 8px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+  },
+  dayNum: {
+    fontSize: "0.78rem",
+    color: "var(--text-dim)",
+    fontFamily: "var(--font-mono)",
+    fontWeight: 600,
+  },
+  dayEvents: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+    overflow: "hidden",
+  },
+  eventChip: {
+    border: "1px solid",
+    borderRadius: 5,
+    padding: "3px 6px",
+    textAlign: "left",
+    cursor: "pointer",
+    display: "flex",
+    flexDirection: "column",
+    lineHeight: 1.2,
+  },
+  eventTime: {
+    fontSize: "0.64rem",
+    fontFamily: "var(--font-mono)",
+    fontWeight: 700,
+    color: "rgba(35,43,69,0.7)",
+  },
+  eventName: {
+    fontSize: "0.7rem",
+    fontWeight: 600,
+    color: "var(--ink)",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+};

@@ -1,0 +1,64 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+#
+# Both services here run on Render's free tier — $0/month. Data lives in a
+# free Turso database (see README > "Deploying to Render" for how to create
+# one), not on Render's own disk, since free Render services don't get a
+# persistent disk.
+#
+# In the Render dashboard: New > Blueprint > connect this repo. Render reads
+# this file and proposes both services below. You'll be prompted for three
+# secrets first (ADMIN_PASSWORD, TURSO_DATABASE_URL, TURSO_AUTH_TOKEN);
+# SESSION_SECRET is generated for you automatically.
+#
+# `fromService ... property: host` only gives the bare subdomain (e.g.
+# "kltc-signup-api"), not the full URL — so the api's CLIENT_ORIGIN and the
+# client's VITE_API_URL are built by interpolating that into the start/build
+# command, the same pattern Render's own examples use for cross-service URLs.
+
+services:
+  - type: web
+    name: kltc-signup-api
+    runtime: docker
+    dockerContext: ./server
+    dockerfilePath: ./server/Dockerfile
+    dockerCommand: >-
+      sh -c 'CLIENT_ORIGIN="https://${CLIENT_HOST}.onrender.com" node src/index.js'
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: CLIENT_HOST
+        fromService:
+          type: web
+          name: kltc-signup-client
+          property: host
+
+  - type: web
+    name: kltc-signup-client
+    runtime: static
+    rootDir: ./client
+    buildCommand: >-
+      VITE_API_URL="https://${API_HOST}.onrender.com/api" npm install && npm run build
+    staticPublishPath: ./dist
+    autoDeploy: true
+    envVars:
+      - key: API_HOST
+        fromService:
+          type: web
+          name: kltc-signup-api
+          property: host
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
