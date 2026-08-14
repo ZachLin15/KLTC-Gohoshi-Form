@@ -332,6 +332,30 @@ router.delete(
   })
 );
 
+// batch delete — body: { ids: number[] }
+router.post(
+  "/events/bulk-delete",
+  h(async (req, res) => {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    if (ids.length === 0) return res.status(400).json({ error: "ids is required" });
+
+    const tx = await client.transaction("write");
+    try {
+      for (const id of ids) {
+        await tx.execute({ sql: "DELETE FROM signups WHERE event_id = ?", args: [id] });
+        await tx.execute({ sql: "DELETE FROM event_roles WHERE event_id = ?", args: [id] });
+        await tx.execute({ sql: "DELETE FROM events WHERE id = ?", args: [id] });
+      }
+      await tx.commit();
+    } catch (e) {
+      await tx.rollback();
+      throw e;
+    }
+    cache.clear();
+    res.json({ ok: true, deleted: ids.length });
+  })
+);
+
 // remove a single signup (admin override, e.g. someone asked to be removed)
 router.delete(
   "/signups/:id",

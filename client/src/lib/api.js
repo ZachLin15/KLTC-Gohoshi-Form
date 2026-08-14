@@ -61,6 +61,8 @@ export const api = {
   adminUpdateEvent: (id, payload) =>
     request(`/admin/events/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
   adminDeleteEvent: (id) => request(`/admin/events/${id}`, { method: "DELETE" }),
+  adminBulkDeleteEvents: (ids) =>
+    request(`/admin/events/bulk-delete`, { method: "POST", body: JSON.stringify({ ids }) }),
   adminDeleteSignup: (id) => request(`/admin/signups/${id}`, { method: "DELETE" }),
 
   // admin: reports
