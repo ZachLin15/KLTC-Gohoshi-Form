@@ -9,7 +9,7 @@ export default function Nav() {
     <header style={styles.header}>
       <div className="container nav-inner" style={styles.inner}>
         <NavLink to="/" style={styles.brand}>
-          <span style={styles.mark}>卍</span>
+          <img src="/logo-wheel.png" alt="" style={styles.mark} />
           <span className="nav-title" style={styles.title}>
             {t("app.title")}
           </span>
@@ -61,8 +61,10 @@ const styles = {
     color: "var(--ink)",
   },
   mark: {
-    fontSize: "1.4rem",
-    color: "var(--gold)",
+    width: 30,
+    height: 30,
+    objectFit: "contain",
+    flexShrink: 0,
   },
   title: {
     fontFamily: "var(--font-display)",

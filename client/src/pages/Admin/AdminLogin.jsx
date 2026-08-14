@@ -23,7 +23,10 @@ export default function AdminLogin({ onLoggedIn }) {
   }
 
   return (
-    <div style={{ maxWidth: 360, margin: "80px auto" }}>
+    <div style={{ maxWidth: 360, margin: "60px auto 0" }}>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 28 }}>
+        <img src="/logo-shinnyo.png" alt="Shinnyo" style={{ height: 44, objectFit: "contain" }} />
+      </div>
       <form onSubmit={submit} className="card" style={{ padding: 28 }}>
         <h2 style={{ fontFamily: "var(--font-display)", marginTop: 0 }}>
           {t("admin.loginTitle")}
