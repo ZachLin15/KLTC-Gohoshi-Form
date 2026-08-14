@@ -3,10 +3,17 @@ import { useI18n } from "../i18n";
 import { api } from "../lib/api";
 import { colorVars } from "../lib/colors";
 import EventModal from "../components/EventModal";
+import Spinner from "../components/Spinner";
 
 const INTL_LOCALE = { en: "en-US", zh: "zh-CN", ja: "ja-JP" };
 const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 const MOBILE_BREAKPOINT = "(max-width: 640px)";
+
+// Session-only cache so clicking prev/next back to a month you've already
+// seen doesn't refetch it — cleared on full page reload, which is fine
+// since a fresh load should show fresh data anyway.
+const monthCache = new Map();
+const MONTH_CACHE_TTL_MS = 15_000;
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(
@@ -42,10 +49,22 @@ export default function Calendar() {
 
   useEffect(() => {
     let cancelled = false;
+    const cacheKey = `${year}-${month}`;
+    const cached = monthCache.get(cacheKey);
+    if (cached && Date.now() - cached.fetchedAt < MONTH_CACHE_TTL_MS) {
+      setEvents(cached.data);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
+    setEvents([]); // clear stale month's events immediately so they don't render mismatched against the new date grid while loading
     api
       .getEvents(year, month)
-      .then((data) => !cancelled && setEvents(data))
+      .then((data) => {
+        if (cancelled) return;
+        monthCache.set(cacheKey, { data, fetchedAt: Date.now() });
+        setEvents(data);
+      })
       .catch(() => !cancelled && setEvents([]))
       .finally(() => !cancelled && setLoading(false));
     return () => {
@@ -106,6 +125,12 @@ export default function Calendar() {
           →
         </button>
       </div>
+
+      {loading && (
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+          <Spinner label={t("common.loading")} />
+        </div>
+      )}
 
       {isMobile ? (
         <AgendaList

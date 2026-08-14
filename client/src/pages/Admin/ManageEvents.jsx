@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useI18n } from "../../i18n";
 import { api } from "../../lib/api";
 import { colorVars } from "../../lib/colors";
+import Spinner, { LoadingBlock } from "../../components/Spinner";
 
 function emptyRole() {
   return { name_en: "", name_zh: "", name_ja: "", limit_count: 1 };
@@ -16,6 +17,7 @@ export default function ManageEvents() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draftRoles, setDraftRoles] = useState([]);
   const [templates, setTemplates] = useState([]);
@@ -44,8 +46,14 @@ export default function ManageEvents() {
     }
     setExpanded(id);
     setEditing(false);
-    const d = await api.adminGetEvent(id);
-    setDetail(d);
+    setDetail(null);
+    setDetailLoading(true);
+    try {
+      const d = await api.adminGetEvent(id);
+      setDetail(d);
+    } finally {
+      setDetailLoading(false);
+    }
   }
 
   function startEditingRoles() {
@@ -143,11 +151,14 @@ export default function ManageEvents() {
         </select>
       </div>
 
+      {loading && <LoadingBlock />}
+
       {!loading && events.length === 0 && (
         <p style={{ color: "var(--text-dim)" }}>{t("admin.events.noEvents")}</p>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {!loading && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {events.map((e) => {
           const colors = colorVars(e.color);
           const isOpen = expanded === e.id;
@@ -172,6 +183,12 @@ export default function ManageEvents() {
                   {t("admin.events.delete")}
                 </button>
               </div>
+
+              {isOpen && detailLoading && (
+                <div style={{ padding: "14px 16px", borderTop: "1px solid var(--line)" }}>
+                  <Spinner label={t("common.loading")} size={16} />
+                </div>
+              )}
 
               {isOpen && detail && detail.id === e.id && !isEditingThis && (
                 <div style={styles.rolesPanel}>
@@ -285,7 +302,8 @@ export default function ManageEvents() {
             </div>
           );
         })}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

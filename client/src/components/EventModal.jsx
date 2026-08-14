@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useI18n } from "../i18n";
 import { api } from "../lib/api";
 import { colorVars } from "../lib/colors";
+import Spinner from "./Spinner";
 
 export default function EventModal({ eventId, onClose, monthLabel }) {
   const { t, pickLang, locale } = useI18n();
@@ -72,7 +73,9 @@ export default function EventModal({ eventId, onClose, monthLabel }) {
       >
         <div style={{ ...styles.header, background: colors.bg, borderColor: colors.line }}>
           {loading ? (
-            <div style={styles.headerTitle}>{t("common.loading")}</div>
+            <div style={styles.headerTitle}>
+              <Spinner label={t("common.loading")} size={16} />
+            </div>
           ) : error ? (
             <div style={styles.headerTitle}>{error}</div>
           ) : (

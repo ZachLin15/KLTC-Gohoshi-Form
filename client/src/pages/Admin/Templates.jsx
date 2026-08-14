@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useI18n } from "../../i18n";
 import { api } from "../../lib/api";
+import { LoadingBlock } from "../../components/Spinner";
 
 function emptyTemplate() {
   return { name_en: "", name_zh: "", name_ja: "", roles: [{ name_en: "", name_zh: "", name_ja: "", limit_count: 1 }] };
@@ -128,6 +129,9 @@ export default function Templates() {
         </div>
       )}
 
+      {loading ? (
+        <LoadingBlock />
+      ) : (
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
         {templates.map((tp) => (
           <div key={tp.id} className="card" style={{ padding: 16 }}>
@@ -165,6 +169,7 @@ export default function Templates() {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }

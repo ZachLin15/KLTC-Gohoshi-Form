@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useI18n } from "../../i18n";
 import { api } from "../../lib/api";
 import { colorVars } from "../../lib/colors";
+import { LoadingBlock } from "../../components/Spinner";
 
 export default function Report() {
   const { t, pickLang } = useI18n();
@@ -68,6 +69,9 @@ export default function Report() {
         <p style={{ color: "var(--text-dim)" }}>{t("admin.events.noEvents")}</p>
       )}
 
+      {loading ? (
+        <LoadingBlock />
+      ) : (
       <div className="card" style={{ overflow: "hidden" }}>
         <table style={styles.table}>
           <thead>
@@ -124,6 +128,7 @@ export default function Report() {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }
