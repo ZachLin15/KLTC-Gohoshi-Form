@@ -47,7 +47,6 @@ router.get(
             FROM events WHERE year = ? AND month = ? ORDER BY day, time`,
       args: [year, month],
     });
-<<<<<<< HEAD
     const events = result.rows;
 
     const rolesByEvent = await getRolesByEventId(events.map((e) => e.id));
@@ -57,10 +56,6 @@ router.get(
 
     cache.set(cacheKey, events, EVENTS_LIST_TTL_MS);
     res.json(events);
-=======
-    cache.set(cacheKey, result.rows, EVENTS_LIST_TTL_MS);
-    res.json(result.rows);
->>>>>>> ad8866f32cdd30dd18942f87d15677e584188cda
   })
 );
 
