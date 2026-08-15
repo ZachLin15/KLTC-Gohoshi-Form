@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useI18n } from "../i18n";
 import { api } from "../lib/api";
 import { colorVars } from "../lib/colors";
+import Spinner from "./Spinner";
 
 export default function EventModal({ event: initialEvent, onClose, monthLabel }) {
   const { t, pickLang, locale } = useI18n();
@@ -54,12 +55,31 @@ export default function EventModal({ event: initialEvent, onClose, monthLabel })
         aria-modal="true"
       >
         <div style={{ ...styles.header, background: colors.bg, borderColor: colors.line }}>
+<<<<<<< HEAD
           <div style={styles.headerMeta}>
             {monthLabel} {event.day} · {event.time}
           </div>
           <div style={styles.headerTitle}>{pickLang(event, "name")}</div>
           {locale !== "en" && event.name_en && pickLang(event, "name") !== event.name_en && (
             <div style={styles.headerSub}>{event.name_en}</div>
+=======
+          {loading ? (
+            <div style={styles.headerTitle}>
+              <Spinner label={t("common.loading")} size={16} />
+            </div>
+          ) : error ? (
+            <div style={styles.headerTitle}>{error}</div>
+          ) : (
+            <>
+              <div style={styles.headerMeta}>
+                {monthLabel} {event.day} · {event.time}
+              </div>
+              <div style={styles.headerTitle}>{pickLang(event, "name")}</div>
+              {locale !== "en" && event.name_en && pickLang(event, "name") !== event.name_en && (
+                <div style={styles.headerSub}>{event.name_en}</div>
+              )}
+            </>
+>>>>>>> ad8866f32cdd30dd18942f87d15677e584188cda
           )}
         </div>
 
