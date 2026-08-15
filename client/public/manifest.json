@@ -1,0 +1,16 @@
+{
+  "name": "KLTC Gohoshi Sign-Up",
+  "short_name": "KLTC Gohoshi",
+  "description": "View KLTC's monthly schedule and sign up for volunteer (gohoshi) roles.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fbf9f4",
+  "theme_color": "#232b45",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

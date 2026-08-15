@@ -3,32 +3,14 @@ import { useI18n } from "../i18n";
 import { api } from "../lib/api";
 import { colorVars } from "../lib/colors";
 
-export default function EventModal({ eventId, onClose, monthLabel }) {
+export default function EventModal({ event: initialEvent, onClose, monthLabel }) {
   const { t, pickLang, locale } = useI18n();
-  const [event, setEvent] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [event, setEvent] = useState(initialEvent);
   const [selectedRole, setSelectedRole] = useState(null);
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(null);
   const [roleError, setRoleError] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError("");
-    api
-      .getEvent(eventId)
-      .then((data) => {
-        if (!cancelled) setEvent(data);
-      })
-      .catch((e) => !cancelled && setError(e.message))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [eventId]);
 
   useEffect(() => {
     function onKey(e) {
@@ -44,15 +26,16 @@ export default function EventModal({ eventId, onClose, monthLabel }) {
     setSubmitting(true);
     setRoleError("");
     try {
-      const res = await api.signUp(eventId, selectedRole.id, name.trim());
+      const res = await api.signUp(event.id, selectedRole.id, name.trim());
       setEvent((prev) => ({ ...prev, roles: res.roles }));
       setSuccess({ role: selectedRole, name: name.trim() });
     } catch (e) {
       if (e.code === "DUPLICATE") setRoleError(t("event.errorDuplicate"));
       else if (e.code === "FULL") {
         setRoleError(t("event.errorFull"));
-        // refresh counts
-        api.getEvent(eventId).then(setEvent).catch(() => {});
+        // refresh counts — this is the one case where a fresh fetch is
+        // worth it, since the displayed count was just proven stale
+        api.getEvent(event.id).then(setEvent).catch(() => {});
         setSelectedRole(null);
       } else setRoleError(t("event.errorGeneric"));
     } finally {
@@ -60,7 +43,7 @@ export default function EventModal({ eventId, onClose, monthLabel }) {
     }
   }
 
-  const colors = event ? colorVars(event.color) : colorVars("yellow");
+  const colors = colorVars(event.color);
 
   return (
     <div style={styles.overlay} onMouseDown={onClose}>
@@ -71,20 +54,12 @@ export default function EventModal({ eventId, onClose, monthLabel }) {
         aria-modal="true"
       >
         <div style={{ ...styles.header, background: colors.bg, borderColor: colors.line }}>
-          {loading ? (
-            <div style={styles.headerTitle}>{t("common.loading")}</div>
-          ) : error ? (
-            <div style={styles.headerTitle}>{error}</div>
-          ) : (
-            <>
-              <div style={styles.headerMeta}>
-                {monthLabel} {event.day} · {event.time}
-              </div>
-              <div style={styles.headerTitle}>{pickLang(event, "name")}</div>
-              {locale !== "en" && event.name_en && pickLang(event, "name") !== event.name_en && (
-                <div style={styles.headerSub}>{event.name_en}</div>
-              )}
-            </>
+          <div style={styles.headerMeta}>
+            {monthLabel} {event.day} · {event.time}
+          </div>
+          <div style={styles.headerTitle}>{pickLang(event, "name")}</div>
+          {locale !== "en" && event.name_en && pickLang(event, "name") !== event.name_en && (
+            <div style={styles.headerSub}>{event.name_en}</div>
           )}
         </div>
 
@@ -93,95 +68,91 @@ export default function EventModal({ eventId, onClose, monthLabel }) {
         </button>
 
         <div style={styles.body}>
-          {!loading && !error && (
-            <>
-              {success ? (
-                <div style={styles.success}>
-                  <div style={styles.successIcon}>✓</div>
-                  <div style={styles.successTitle}>{t("event.successTitle")}</div>
-                  <div style={styles.successBody}>
-                    {t("event.successBody", {
-                      role: pickLang(success.role, "name"),
-                      date: `${monthLabel} ${event.day}`,
-                    })}
-                  </div>
-                  <button className="btn btn-ghost" onClick={onClose} style={{ marginTop: 16 }}>
-                    {t("event.close")}
+          {success ? (
+            <div style={styles.success}>
+              <div style={styles.successIcon}>✓</div>
+              <div style={styles.successTitle}>{t("event.successTitle")}</div>
+              <div style={styles.successBody}>
+                {t("event.successBody", {
+                  role: pickLang(success.role, "name"),
+                  date: `${monthLabel} ${event.day}`,
+                })}
+              </div>
+              <button className="btn btn-ghost" onClick={onClose} style={{ marginTop: 16 }}>
+                {t("event.close")}
+              </button>
+            </div>
+          ) : !event.needs_signup || event.roles.length === 0 ? (
+            <p style={{ color: "var(--text-dim)" }}>{t("event.noRoles")}</p>
+          ) : (
+            <form onSubmit={submit}>
+              <h3 style={styles.rolesTitle}>{t("event.rolesTitle")}</h3>
+              <div style={styles.roleList}>
+                {event.roles.map((r) => {
+                  const spotsLeft = r.limit_count - r.signup_count;
+                  const isFull = spotsLeft <= 0;
+                  const isSelected = selectedRole && selectedRole.id === r.id;
+                  return (
+                    <button
+                      type="button"
+                      key={r.id}
+                      disabled={isFull}
+                      onClick={() => {
+                        setSelectedRole(r);
+                        setRoleError("");
+                      }}
+                      style={{
+                        ...styles.roleRow,
+                        ...(isSelected ? styles.roleRowSelected : {}),
+                        ...(isFull ? styles.roleRowFull : {}),
+                      }}
+                    >
+                      <div style={styles.roleDots} aria-hidden="true">
+                        {Array.from({ length: r.limit_count }).map((_, i) => (
+                          <span
+                            key={i}
+                            style={{
+                              ...styles.dot,
+                              background: i < r.signup_count ? "var(--ink-soft)" : "var(--line)",
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <span style={styles.roleName}>{pickLang(r, "name")}</span>
+                      <span style={styles.roleCount}>
+                        {isFull ? t("event.full") : `${spotsLeft} ${t("event.spotsLeft")}`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {selectedRole && (
+                <div style={styles.nameSection}>
+                  <label style={styles.label} htmlFor="signup-name">
+                    {t("event.yourName")}
+                  </label>
+                  <input
+                    id="signup-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={t("event.namePlaceholder")}
+                    style={{ width: "100%" }}
+                    autoFocus
+                    maxLength={80}
+                  />
+                  {roleError && <div style={styles.errorText}>{roleError}</div>}
+                  <button
+                    type="submit"
+                    className="btn btn-gold"
+                    disabled={submitting || !name.trim()}
+                    style={{ marginTop: 12, width: "100%" }}
+                  >
+                    {submitting ? t("event.signingUp") : t("event.signUp")}
                   </button>
                 </div>
-              ) : !event.needs_signup || event.roles.length === 0 ? (
-                <p style={{ color: "var(--text-dim)" }}>{t("event.noRoles")}</p>
-              ) : (
-                <form onSubmit={submit}>
-                  <h3 style={styles.rolesTitle}>{t("event.rolesTitle")}</h3>
-                  <div style={styles.roleList}>
-                    {event.roles.map((r) => {
-                      const spotsLeft = r.limit_count - r.signup_count;
-                      const isFull = spotsLeft <= 0;
-                      const isSelected = selectedRole && selectedRole.id === r.id;
-                      return (
-                        <button
-                          type="button"
-                          key={r.id}
-                          disabled={isFull}
-                          onClick={() => {
-                            setSelectedRole(r);
-                            setRoleError("");
-                          }}
-                          style={{
-                            ...styles.roleRow,
-                            ...(isSelected ? styles.roleRowSelected : {}),
-                            ...(isFull ? styles.roleRowFull : {}),
-                          }}
-                        >
-                          <div style={styles.roleDots} aria-hidden="true">
-                            {Array.from({ length: r.limit_count }).map((_, i) => (
-                              <span
-                                key={i}
-                                style={{
-                                  ...styles.dot,
-                                  background: i < r.signup_count ? "var(--ink-soft)" : "var(--line)",
-                                }}
-                              />
-                            ))}
-                          </div>
-                          <span style={styles.roleName}>{pickLang(r, "name")}</span>
-                          <span style={styles.roleCount}>
-                            {isFull ? t("event.full") : `${spotsLeft} ${t("event.spotsLeft")}`}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {selectedRole && (
-                    <div style={styles.nameSection}>
-                      <label style={styles.label} htmlFor="signup-name">
-                        {t("event.yourName")}
-                      </label>
-                      <input
-                        id="signup-name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder={t("event.namePlaceholder")}
-                        style={{ width: "100%" }}
-                        autoFocus
-                        maxLength={80}
-                      />
-                      {roleError && <div style={styles.errorText}>{roleError}</div>}
-                      <button
-                        type="submit"
-                        className="btn btn-gold"
-                        disabled={submitting || !name.trim()}
-                        style={{ marginTop: 12, width: "100%" }}
-                      >
-                        {submitting ? t("event.signingUp") : t("event.signUp")}
-                      </button>
-                    </div>
-                  )}
-                </form>
               )}
-            </>
+            </form>
           )}
         </div>
       </div>

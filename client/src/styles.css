@@ -133,6 +133,12 @@ textarea {
   }
 }
 
+@keyframes kltc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Nav: on narrow screens, drop the full title (icon alone is enough to
    identify the brand next to "Calendar"/"Admin"), tighten spacing, and let
    the row wrap instead of clipping/overlapping at a fixed height. */

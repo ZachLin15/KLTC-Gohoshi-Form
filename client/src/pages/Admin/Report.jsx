@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useI18n } from "../../i18n";
 import { api } from "../../lib/api";
 import { colorVars } from "../../lib/colors";
+import { LoadingBlock } from "../../components/Spinner";
 
 export default function Report() {
   const { t, pickLang } = useI18n();
@@ -68,7 +69,11 @@ export default function Report() {
         <p style={{ color: "var(--text-dim)" }}>{t("admin.events.noEvents")}</p>
       )}
 
+      {loading ? (
+        <LoadingBlock />
+      ) : (
       <div className="card" style={{ overflow: "hidden" }}>
+        <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
         <table style={styles.table}>
           <thead>
             <tr>
@@ -123,7 +128,9 @@ export default function Report() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
+      )}
     </div>
   );
 }
@@ -139,6 +146,7 @@ function countRows(event) {
 const styles = {
   table: {
     width: "100%",
+    minWidth: 560,
     borderCollapse: "collapse",
     fontSize: "0.85rem",
   },

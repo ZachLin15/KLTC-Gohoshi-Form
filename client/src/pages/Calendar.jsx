@@ -3,10 +3,17 @@ import { useI18n } from "../i18n";
 import { api } from "../lib/api";
 import { colorVars } from "../lib/colors";
 import EventModal from "../components/EventModal";
+import Spinner from "../components/Spinner";
 
 const INTL_LOCALE = { en: "en-US", zh: "zh-CN", ja: "ja-JP" };
 const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 const MOBILE_BREAKPOINT = "(max-width: 640px)";
+
+// Session-only cache so clicking prev/next back to a month you've already
+// seen doesn't refetch it — cleared on full page reload, which is fine
+// since a fresh load should show fresh data anyway.
+const monthCache = new Map();
+const MONTH_CACHE_TTL_MS = 15_000;
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(
@@ -38,14 +45,26 @@ export default function Calendar() {
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedEventId, setSelectedEventId] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
+    const cacheKey = `${year}-${month}`;
+    const cached = monthCache.get(cacheKey);
+    if (cached && Date.now() - cached.fetchedAt < MONTH_CACHE_TTL_MS) {
+      setEvents(cached.data);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
+    setEvents([]); // clear stale month's events immediately so they don't render mismatched against the new date grid while loading
     api
       .getEvents(year, month)
-      .then((data) => !cancelled && setEvents(data))
+      .then((data) => {
+        if (cancelled) return;
+        monthCache.set(cacheKey, { data, fetchedAt: Date.now() });
+        setEvents(data);
+      })
       .catch(() => !cancelled && setEvents([]))
       .finally(() => !cancelled && setLoading(false));
     return () => {
@@ -107,11 +126,17 @@ export default function Calendar() {
         </button>
       </div>
 
+      {loading && (
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+          <Spinner label={t("common.loading")} />
+        </div>
+      )}
+
       {isMobile ? (
         <AgendaList
           total={total}
           eventsByDay={eventsByDay}
-          onSelect={setSelectedEventId}
+          onSelect={setSelectedEvent}
           pickLang={pickLang}
           t={t}
           locale={locale}
@@ -137,7 +162,7 @@ export default function Calendar() {
                   key={i}
                   day={d}
                   events={eventsByDay[d] || []}
-                  onSelect={setSelectedEventId}
+                  onSelect={setSelectedEvent}
                   pickLang={pickLang}
                   t={t}
                 />
@@ -147,17 +172,17 @@ export default function Calendar() {
         </>
       )}
 
-      {!loading && events.length === 0 && (
+      {!loading && !isMobile && events.length === 0 && (
         <p style={{ color: "var(--text-dim)", textAlign: "center", marginTop: 40 }}>
           {t("calendar.noEvents")}
         </p>
       )}
 
-      {selectedEventId && (
+      {selectedEvent && (
         <EventModal
-          eventId={selectedEventId}
+          event={selectedEvent}
           monthLabel={monthLabel}
-          onClose={() => setSelectedEventId(null)}
+          onClose={() => setSelectedEvent(null)}
         />
       )}
     </div>
@@ -174,7 +199,7 @@ function DayCell({ day, events, onSelect, pickLang, t }) {
           return (
             <button
               key={e.id}
-              onClick={() => onSelect(e.id)}
+              onClick={() => onSelect(e)}
               style={{
                 ...styles.eventChip,
                 background: colors.bg,
@@ -225,7 +250,7 @@ function AgendaList({ total, eventsByDay, onSelect, pickLang, t, locale, year, m
                 return (
                   <button
                     key={e.id}
-                    onClick={() => onSelect(e.id)}
+                    onClick={() => onSelect(e)}
                     style={{
                       ...styles.agendaChip,
                       background: colors.bg,

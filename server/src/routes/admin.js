@@ -3,6 +3,8 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const { client } = require("../db");
+const { attachRoles } = require("../services/roles");
+const cache = require("../services/cache");
 const { checkPassword, requireAdmin } = require("../middleware/adminAuth");
 const { parsePdf } = require("../services/pdfParser");
 
@@ -163,43 +165,6 @@ router.delete(
 );
 
 // ---------- events ----------
-async function attachRolesWithSignups(events) {
-  for (const e of events) {
-    const rRes = await client.execute({
-      sql: "SELECT * FROM event_roles WHERE event_id = ? ORDER BY sort_order",
-      args: [e.id],
-    });
-    e.roles = rRes.rows;
-    for (const r of e.roles) {
-      const sRes = await client.execute({
-        sql: "SELECT id, name, created_at FROM signups WHERE event_role_id = ? ORDER BY created_at",
-        args: [r.id],
-      });
-      r.signups = sRes.rows;
-      r.signup_count = r.signups.length;
-    }
-  }
-  return events;
-}
-
-async function attachRoleCounts(events) {
-  for (const e of events) {
-    const rRes = await client.execute({
-      sql: "SELECT * FROM event_roles WHERE event_id = ? ORDER BY sort_order",
-      args: [e.id],
-    });
-    e.roles = rRes.rows;
-    for (const r of e.roles) {
-      const cRes = await client.execute({
-        sql: "SELECT COUNT(*) AS c FROM signups WHERE event_role_id = ?",
-        args: [r.id],
-      });
-      r.signup_count = Number(cRes.rows[0].c);
-    }
-  }
-  return events;
-}
-
 router.get(
   "/events",
   h(async (req, res) => {
@@ -209,7 +174,7 @@ router.get(
       sql: "SELECT * FROM events WHERE year = ? AND month = ? ORDER BY day, time",
       args: [year, month],
     });
-    res.json(await attachRoleCounts(eRes.rows));
+    res.json(await attachRoles(eRes.rows));
   })
 );
 
@@ -219,7 +184,7 @@ router.get(
     const eRes = await client.execute({ sql: "SELECT * FROM events WHERE id = ?", args: [req.params.id] });
     const event = eRes.rows[0];
     if (!event) return res.status(404).json({ error: "Event not found" });
-    await attachRolesWithSignups([event]);
+    await attachRoles([event]);
     res.json(event);
   })
 );
@@ -285,6 +250,7 @@ router.post(
       await tx.rollback();
       throw e;
     }
+    cache.clear();
     res.json({ ok: true, ids });
   })
 );
@@ -341,7 +307,8 @@ router.put(
 
     const eRes = await client.execute({ sql: "SELECT * FROM events WHERE id = ?", args: [id] });
     const event = eRes.rows[0];
-    await attachRolesWithSignups([event]);
+    await attachRoles([event]);
+    cache.clear();
     res.json(event);
   })
 );
@@ -360,7 +327,32 @@ router.delete(
       await tx.rollback();
       throw e;
     }
+    cache.clear();
     res.json({ ok: true });
+  })
+);
+
+// batch delete — body: { ids: number[] }
+router.post(
+  "/events/bulk-delete",
+  h(async (req, res) => {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    if (ids.length === 0) return res.status(400).json({ error: "ids is required" });
+
+    const tx = await client.transaction("write");
+    try {
+      for (const id of ids) {
+        await tx.execute({ sql: "DELETE FROM signups WHERE event_id = ?", args: [id] });
+        await tx.execute({ sql: "DELETE FROM event_roles WHERE event_id = ?", args: [id] });
+        await tx.execute({ sql: "DELETE FROM events WHERE id = ?", args: [id] });
+      }
+      await tx.commit();
+    } catch (e) {
+      await tx.rollback();
+      throw e;
+    }
+    cache.clear();
+    res.json({ ok: true, deleted: ids.length });
   })
 );
 
@@ -369,6 +361,7 @@ router.delete(
   "/signups/:id",
   h(async (req, res) => {
     await client.execute({ sql: "DELETE FROM signups WHERE id = ?", args: [req.params.id] });
+    cache.clear();
     res.json({ ok: true });
   })
 );
@@ -380,7 +373,7 @@ async function getMonthReport(year, month) {
     args: [year, month],
   });
   const events = eRes.rows;
-  await attachRolesWithSignups(events);
+  await attachRoles(events);
   return events;
 }
 

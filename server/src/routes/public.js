@@ -1,5 +1,10 @@
 const express = require("express");
 const { client } = require("../db");
+const { getRolesByEventId } = require("../services/roles");
+const cache = require("../services/cache");
+
+const EVENTS_LIST_TTL_MS = 20_000; // calendar list rarely needs to be second-fresh
+const EVENT_DETAIL_TTL_MS = 8_000; // shorter, since this is where signup counts matter most
 
 const router = express.Router();
 
@@ -11,18 +16,46 @@ function normalizeName(name) {
   return String(name || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+// strip other people's names before sending to the public — only counts
+function publicRoles(roles) {
+  return roles.map(({ id, name_en, name_zh, name_ja, limit_count, signup_count }) => ({
+    id,
+    name_en,
+    name_zh,
+    name_ja,
+    limit_count,
+    signup_count,
+  }));
+}
+
 // GET /api/events?year=2026&month=8
+// Includes roles + live counts (no names) inline, so opening the detail
+// modal for any event on this list needs zero extra network round-trips —
+// that's what was making the modal feel slow to open before.
 router.get(
   "/events",
   h(async (req, res) => {
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ error: "year and month are required" });
+
+    const cacheKey = `events:${year}:${month}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return res.json(cached);
+
     const result = await client.execute({
       sql: `SELECT id, year, month, day, time, name_en, name_zh, name_ja, color, needs_signup
             FROM events WHERE year = ? AND month = ? ORDER BY day, time`,
       args: [year, month],
     });
-    res.json(result.rows);
+    const events = result.rows;
+
+    const rolesByEvent = await getRolesByEventId(events.map((e) => e.id));
+    for (const e of events) {
+      e.roles = publicRoles(rolesByEvent[e.id] || []);
+    }
+
+    cache.set(cacheKey, events, EVENTS_LIST_TTL_MS);
+    res.json(events);
   })
 );
 
@@ -30,22 +63,17 @@ router.get(
 router.get(
   "/events/:id",
   h(async (req, res) => {
+    const cacheKey = `event:${req.params.id}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return res.json(cached);
+
     const eRes = await client.execute({ sql: "SELECT * FROM events WHERE id = ?", args: [req.params.id] });
     const event = eRes.rows[0];
     if (!event) return res.status(404).json({ error: "Event not found" });
 
-    const rRes = await client.execute({
-      sql: "SELECT id, name_en, name_zh, name_ja, limit_count FROM event_roles WHERE event_id = ? ORDER BY sort_order",
-      args: [event.id],
-    });
-    event.roles = rRes.rows;
-    for (const r of event.roles) {
-      const cRes = await client.execute({
-        sql: "SELECT COUNT(*) AS c FROM signups WHERE event_role_id = ?",
-        args: [r.id],
-      });
-      r.signup_count = Number(cRes.rows[0].c);
-    }
+    const rolesByEvent = await getRolesByEventId([event.id]);
+    event.roles = publicRoles(rolesByEvent[event.id] || []);
+    cache.set(cacheKey, event, EVENT_DETAIL_TTL_MS);
     res.json(event);
   })
 );
@@ -109,23 +137,14 @@ router.post(
         args: [eventId, role_id, trimmedName, nameNorm],
       });
       await tx.commit();
+      cache.clear(); // this event's counts (and its month's list) just changed
     } catch (e) {
       await tx.rollback();
       throw e;
     }
 
-    const rolesRes = await client.execute({
-      sql: "SELECT id, name_en, name_zh, name_ja, limit_count FROM event_roles WHERE event_id = ? ORDER BY sort_order",
-      args: [eventId],
-    });
-    const roles = rolesRes.rows;
-    for (const r of roles) {
-      const cRes = await client.execute({
-        sql: "SELECT COUNT(*) AS c FROM signups WHERE event_role_id = ?",
-        args: [r.id],
-      });
-      r.signup_count = Number(cRes.rows[0].c);
-    }
+    const rolesByEvent = await getRolesByEventId([eventId]);
+    const roles = publicRoles(rolesByEvent[eventId] || []);
     res.json({ ok: true, roles });
   })
 );

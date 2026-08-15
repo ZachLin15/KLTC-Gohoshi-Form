@@ -38,8 +38,8 @@ export default function AdminApp() {
 
   return (
     <div className="container" style={{ paddingTop: 28, paddingBottom: 60 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <div style={{ display: "flex", gap: 4, background: "var(--paper-dim)", borderRadius: 999, padding: 3 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", rowGap: 10 }}>
+        <div style={{ display: "flex", gap: 4, background: "var(--paper-dim)", borderRadius: 999, padding: 3, flexWrap: "wrap", rowGap: 4 }}>
           {TABS.map((tb) => (
             <button
               key={tb.key}
