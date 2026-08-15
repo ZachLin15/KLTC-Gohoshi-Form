@@ -100,5 +100,16 @@
   "install.body": "ホーム画面に追加すると、ブラウザを開かずにすぐアクセスできます。",
   "install.iosInstructions": "共有アイコンをタップし、「ホーム画面に追加」を選択してください。",
   "install.addButton": "追加",
-  "install.dismiss": "閉じる"
+  "install.dismiss": "閉じる",
+  "calendar.loadError": "スケジュールを読み込めませんでした。接続を確認して再試行してください。",
+  "calendar.retry": "再試行",
+  "nav.mySignups": "申し込み履歴",
+  "mySignups.title": "申し込み履歴",
+  "mySignups.subtitle": "申し込み時に使用したお名前を入力すると、どの端末からでも申し込み内容を確認できます。",
+  "mySignups.search": "検索",
+  "mySignups.prompt": "上にお名前を入力して申し込み内容を確認してください。",
+  "mySignups.none": "そのお名前の申し込みは見つかりませんでした。",
+  "mySignups.error": "検索できませんでした。もう一度お試しください。",
+  "mySignups.upcoming": "今後の予定",
+  "mySignups.past": "過去の記録"
 }

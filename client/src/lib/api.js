@@ -34,6 +34,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ role_id, name }),
     }),
+  lookupSignups: (name) => request(`/signups/lookup?name=${encodeURIComponent(name)}`),
 
   // admin auth
   adminLogin: (password) =>

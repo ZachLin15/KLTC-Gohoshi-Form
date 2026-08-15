@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useI18n } from "../i18n";
 import { api } from "../lib/api";
 import { colorVars } from "../lib/colors";
+import { rememberName } from "../lib/nameMemory";
 
 export default function EventModal({ event: initialEvent, onClose, monthLabel }) {
   const { t, pickLang, locale } = useI18n();
@@ -29,6 +30,7 @@ export default function EventModal({ event: initialEvent, onClose, monthLabel })
       const res = await api.signUp(event.id, selectedRole.id, name.trim());
       setEvent((prev) => ({ ...prev, roles: res.roles }));
       setSuccess({ role: selectedRole, name: name.trim() });
+      rememberName(name.trim());
     } catch (e) {
       if (e.code === "DUPLICATE") setRoleError(t("event.errorDuplicate"));
       else if (e.code === "FULL") {

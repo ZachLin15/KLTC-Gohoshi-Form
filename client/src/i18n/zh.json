@@ -100,5 +100,16 @@
   "install.body": "将本应用安装到主屏幕，无需打开浏览器即可快速访问。",
   "install.iosInstructions": "点击「分享」图标，然后选择「添加到主屏幕」。",
   "install.addButton": "添加",
-  "install.dismiss": "关闭"
+  "install.dismiss": "关闭",
+  "calendar.loadError": "无法加载时间表，请检查网络连接后重试。",
+  "calendar.retry": "重试",
+  "nav.mySignups": "我的报名",
+  "mySignups.title": "我的报名",
+  "mySignups.subtitle": "输入您报名时使用的姓名，即可在任何设备上查看您的报名记录。",
+  "mySignups.search": "查询",
+  "mySignups.prompt": "请在上方输入您的姓名以查看报名记录。",
+  "mySignups.none": "未找到该姓名的报名记录。",
+  "mySignups.error": "查询失败，请重试。",
+  "mySignups.upcoming": "即将到来",
+  "mySignups.past": "已过去"
 }

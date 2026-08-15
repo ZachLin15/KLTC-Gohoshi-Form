@@ -149,4 +149,30 @@ router.post(
   })
 );
 
+// GET /api/signups/lookup?name=Alice Tan
+// Lets a person check what they signed up for from any device — no
+// login exists in this app, so this is name-based, same as signing up.
+router.get(
+  "/signups/lookup",
+  h(async (req, res) => {
+    const name = String(req.query.name || "").trim();
+    if (!name) return res.status(400).json({ error: "name is required" });
+
+    const nameNorm = normalizeName(name);
+    const result = await client.execute({
+      sql: `SELECT s.id AS signup_id, s.name, s.created_at,
+                   e.id AS event_id, e.year, e.month, e.day, e.time, e.color,
+                   e.name_en AS event_name_en, e.name_zh AS event_name_zh, e.name_ja AS event_name_ja,
+                   er.name_en AS role_name_en, er.name_zh AS role_name_zh, er.name_ja AS role_name_ja
+            FROM signups s
+            JOIN events e ON e.id = s.event_id
+            JOIN event_roles er ON er.id = s.event_role_id
+            WHERE s.name_normalized = ?
+            ORDER BY e.year, e.month, e.day, e.time`,
+      args: [nameNorm],
+    });
+    res.json(result.rows);
+  })
+);
+
 module.exports = router;

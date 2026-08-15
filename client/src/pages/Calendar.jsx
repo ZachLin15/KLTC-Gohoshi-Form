@@ -45,7 +45,9 @@ export default function Calendar() {
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [retryTick, setRetryTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,24 +55,44 @@ export default function Calendar() {
     const cached = monthCache.get(cacheKey);
     if (cached && Date.now() - cached.fetchedAt < MONTH_CACHE_TTL_MS) {
       setEvents(cached.data);
+      setLoadError(false);
       setLoading(false);
       return;
     }
     setLoading(true);
+    setLoadError(false);
     setEvents([]); // clear stale month's events immediately so they don't render mismatched against the new date grid while loading
-    api
-      .getEvents(year, month)
-      .then((data) => {
-        if (cancelled) return;
-        monthCache.set(cacheKey, { data, fetchedAt: Date.now() });
-        setEvents(data);
-      })
-      .catch(() => !cancelled && setEvents([]))
-      .finally(() => !cancelled && setLoading(false));
+
+    function attempt(isRetry) {
+      return api
+        .getEvents(year, month)
+        .then((data) => {
+          if (cancelled) return;
+          monthCache.set(cacheKey, { data, fetchedAt: Date.now() });
+          setEvents(data);
+          setLoadError(false);
+          setLoading(false);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          // The most common real-world cause of a failed request here is
+          // Render's free tier waking up from sleep (30-60s cold start) —
+          // one silent automatic retry after a short delay resolves most of
+          // those without the person needing to notice or do anything.
+          if (!isRetry) {
+            setTimeout(() => !cancelled && attempt(true), 4000);
+            return;
+          }
+          setLoadError(true);
+          setLoading(false);
+        });
+    }
+    attempt(false);
+
     return () => {
       cancelled = true;
     };
-  }, [year, month]);
+  }, [year, month, retryTick]);
 
   const monthLabel = useMemo(
     () =>
@@ -132,7 +154,16 @@ export default function Calendar() {
         </div>
       )}
 
-      {isMobile ? (
+      {loadError && !loading && (
+        <div style={styles.errorBlock}>
+          <p style={styles.errorText}>{t("calendar.loadError")}</p>
+          <button className="btn btn-gold" onClick={() => setRetryTick((n) => n + 1)}>
+            {t("calendar.retry")}
+          </button>
+        </div>
+      )}
+
+      {!loadError && isMobile ? (
         <AgendaList
           total={total}
           eventsByDay={eventsByDay}
@@ -142,8 +173,9 @@ export default function Calendar() {
           locale={locale}
           year={year}
           month={month}
+          loading={loading}
         />
-      ) : (
+      ) : !loadError ? (
         <>
           <div style={styles.weekHeader}>
             {WEEKDAY_KEYS.map((k) => (
@@ -170,9 +202,9 @@ export default function Calendar() {
             )}
           </div>
         </>
-      )}
+      ) : null}
 
-      {!loading && !isMobile && events.length === 0 && (
+      {!loading && !loadError && !isMobile && events.length === 0 && (
         <p style={{ color: "var(--text-dim)", textAlign: "center", marginTop: 40 }}>
           {t("calendar.noEvents")}
         </p>
@@ -222,13 +254,14 @@ function DayCell({ day, events, onSelect, pickLang, t }) {
 // actually have events — full-width rows mean event names don't need
 // truncating or a hover tooltip (which doesn't exist on touch anyway); the
 // full name is always visible, and tapping a row opens the same detail modal.
-function AgendaList({ total, eventsByDay, onSelect, pickLang, t, locale, year, month }) {
+function AgendaList({ total, eventsByDay, onSelect, pickLang, t, locale, year, month, loading }) {
   const days = [];
   for (let d = 1; d <= total; d++) {
     if (eventsByDay[d] && eventsByDay[d].length > 0) days.push(d);
   }
 
   if (days.length === 0) {
+    if (loading) return null;
     return <p style={{ color: "var(--text-dim)", textAlign: "center", marginTop: 40 }}>{t("calendar.noEvents")}</p>;
   }
 
@@ -271,6 +304,19 @@ function AgendaList({ total, eventsByDay, onSelect, pickLang, t, locale, year, m
 }
 
 const styles = {
+  errorBlock: {
+    textAlign: "center",
+    padding: "32px 20px",
+    background: "#fdf2f0",
+    border: "1px solid #f0d4cf",
+    borderRadius: "var(--radius-m)",
+    marginBottom: 20,
+  },
+  errorText: {
+    color: "#8a4a3f",
+    fontSize: "0.92rem",
+    marginBottom: 14,
+  },
   monthBar: {
     display: "flex",
     alignItems: "center",

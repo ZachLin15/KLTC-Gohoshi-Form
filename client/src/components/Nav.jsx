@@ -18,6 +18,9 @@ export default function Nav() {
           <NavLink to="/" end style={({ isActive }) => linkStyle(isActive)}>
             {t("nav.calendar")}
           </NavLink>
+          <NavLink to="/my-signups" style={({ isActive }) => linkStyle(isActive)}>
+            {t("nav.mySignups")}
+          </NavLink>
           <NavLink to="/admin" style={({ isActive }) => linkStyle(isActive)}>
             {t("nav.admin")}
           </NavLink>

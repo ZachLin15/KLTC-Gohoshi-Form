@@ -100,5 +100,16 @@
   "install.body": "Install this app for quick access — no browser needed.",
   "install.iosInstructions": "Tap the Share icon, then \"Add to Home Screen.\"",
   "install.addButton": "Add",
-  "install.dismiss": "Dismiss"
+  "install.dismiss": "Dismiss",
+  "calendar.loadError": "Couldn't load the schedule — please check your connection and try again.",
+  "calendar.retry": "Retry",
+  "nav.mySignups": "My Sign-ups",
+  "mySignups.title": "My Sign-ups",
+  "mySignups.subtitle": "Look up what you've signed up for, on any device — just enter the name you used when signing up.",
+  "mySignups.search": "Search",
+  "mySignups.prompt": "Enter your name above to see your sign-ups.",
+  "mySignups.none": "No sign-ups found for that name.",
+  "mySignups.error": "Couldn't look that up — please try again.",
+  "mySignups.upcoming": "Upcoming",
+  "mySignups.past": "Past"
 }

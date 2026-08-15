@@ -66,11 +66,20 @@ async function cacheFirst(request, cacheName) {
 async function staleWhileRevalidate(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
-  const networkPromise = fetch(request)
-    .then((response) => {
-      if (response.ok) cache.put(request, response.clone());
-      return response;
-    })
-    .catch(() => null);
-  return cached || (await networkPromise) || new Response("[]", { headers: { "Content-Type": "application/json" } });
+  const networkPromise = fetch(request).then((response) => {
+    if (response.ok) cache.put(request, response.clone());
+    return response;
+  });
+  if (cached) {
+    // update the cache in the background, but don't let a failed
+    // revalidation surface as an unhandled rejection
+    networkPromise.catch(() => {});
+    return cached;
+  }
+  // no cached copy yet — this MUST reflect a real failure if the network
+  // fails, rather than fabricating a fake "successful" empty response.
+  // Silently returning [] here previously made real outages (e.g. hitting
+  // the server mid cold-start) look identical to a genuinely empty
+  // calendar, with no way for the page to know to retry.
+  return networkPromise;
 }
