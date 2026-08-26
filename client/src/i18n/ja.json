@@ -111,5 +111,12 @@
   "mySignups.none": "そのお名前の申し込みは見つかりませんでした。",
   "mySignups.error": "検索できませんでした。もう一度お試しください。",
   "mySignups.upcoming": "今後の予定",
-  "mySignups.past": "過去の記録"
+  "mySignups.past": "過去の記録",
+  "admin.review.dayMissing": "⚠ この行事の日付を特定できませんでした。保存前に手動で設定してください。",
+  "admin.review.fixDaysFirst": "{count} 件の行事に有効な日付がありません。保存前に該当箇所を修正してください。",
+  "dayPanel.viewDay": "この日の申し込み状況を見る",
+  "dayPanel.error": "この日を読み込めませんでした。もう一度お試しください。",
+  "dayPanel.noEvents": "この日の行事はありません。",
+  "dayPanel.openToSignUp": "タップして開き、申し込む",
+  "dayPanel.noSignupsYet": "まだ申し込みがありません。"
 }

@@ -59,6 +59,47 @@ router.get(
   })
 );
 
+// GET /api/events/day?year=2026&month=8&day=15
+// Deliberately exposes WHO signed up (not just counts) for a specific
+// day's events — this is a distinct, explicit "day roster" view (used by
+// the calendar's day-click panel), unlike the month list / single event
+// endpoints below which stay name-free by default for a lighter, more
+// private-by-default general browsing experience.
+//
+// NOTE: this must be registered BEFORE the "/events/:id" route below —
+// Express would otherwise match "/events/day" against ":id" (with id
+// literally being the string "day") and this route would never be reached.
+router.get(
+  "/events/day",
+  h(async (req, res) => {
+    const { year, month, day } = req.query;
+    if (!year || !month || !day) {
+      return res.status(400).json({ error: "year, month, and day are required" });
+    }
+
+    const eRes = await client.execute({
+      sql: `SELECT id, year, month, day, time, name_en, name_zh, name_ja, color, needs_signup
+            FROM events WHERE year = ? AND month = ? AND day = ? ORDER BY time`,
+      args: [year, month, day],
+    });
+    const events = eRes.rows;
+
+    const rolesByEvent = await getRolesByEventId(events.map((e) => e.id));
+    for (const e of events) {
+      e.roles = (rolesByEvent[e.id] || []).map((r) => ({
+        id: r.id,
+        name_en: r.name_en,
+        name_zh: r.name_zh,
+        name_ja: r.name_ja,
+        limit_count: r.limit_count,
+        signup_count: r.signup_count,
+        signups: r.signups.map((s) => ({ name: s.name })),
+      }));
+    }
+    res.json(events);
+  })
+);
+
 // GET /api/events/:id  (detail + roles + live counts)
 router.get(
   "/events/:id",

@@ -19,6 +19,54 @@ function h(fn) {
   return (req, res, next) => fn(req, res, next).catch(next);
 }
 
+// `time` is stored as free text (e.g. "7:00", "13:30", or occasionally "~"
+// for an ongoing/unspecified slot) and every list view sorts with plain
+// "ORDER BY time" — which is a TEXT sort, so unpadded hours sort wrong
+// ("13:30" comes before "7:00" alphabetically, since '1' < '7'). Zero-
+// padding here at write-time makes plain text sort match chronological
+// order everywhere, without needing every query to reimplement time parsing.
+function normalizeTime(t) {
+  const s = String(t || "").trim();
+  const m = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return s; // non-standard values (e.g. "~") pass through unchanged
+  return `${m[1].padStart(2, "0")}:${m[2]}`;
+}
+
+// Validates and normalizes an event payload before it ever reaches a DB
+// bind call. The DB driver throws an opaque, hard-crashing "Unsupported
+// type of value" error if any bind parameter is `undefined` (e.g. a
+// missing/unparseable `day`) — this catches that up front with a clear,
+// specific 400 error instead, and coerces optional fields to safe defaults
+// so a single bad row can't take down an entire batch save.
+function validateEventInput(e, index) {
+  const day = Number(e.day);
+  if (!Number.isInteger(day) || day < 1 || day > 31) {
+    return {
+      error: `Event #${index + 1}${e.name_en ? ` ("${e.name_en}")` : ""} has an invalid or missing day (${JSON.stringify(
+        e.day
+      )}). Please set a valid date (1-31) before saving.`,
+    };
+  }
+  return {
+    value: {
+      day,
+      time: normalizeTime(e.time),
+      name_en: e.name_en || "",
+      name_zh: e.name_zh || "",
+      name_ja: e.name_ja || "",
+      color: e.color || "yellow",
+      template_id: e.template_id || null,
+      needs_signup: e.needs_signup === false ? 0 : 1,
+      roles: (e.roles || []).map((r) => ({
+        name_en: r.name_en || "",
+        name_zh: r.name_zh || "",
+        name_ja: r.name_ja || "",
+        limit_count: Number.isFinite(Number(r.limit_count)) && Number(r.limit_count) > 0 ? Number(r.limit_count) : 1,
+      })),
+    },
+  };
+}
+
 // ---------- auth ----------
 router.post("/login", (req, res) => {
   const { password } = req.body || {};
@@ -196,6 +244,15 @@ router.post(
     const { year, month, replace = false, events = [] } = req.body || {};
     if (!year || !month) return res.status(400).json({ error: "year and month are required" });
 
+    // validate every row up front — reject with a clear message naming the
+    // bad row, rather than crashing mid-transaction on a DB type error
+    const validated = [];
+    for (let i = 0; i < events.length; i++) {
+      const result = validateEventInput(events[i], i);
+      if (result.error) return res.status(400).json({ error: result.error });
+      validated.push(result.value);
+    }
+
     const tx = await client.transaction("write");
     const ids = [];
     try {
@@ -216,7 +273,7 @@ router.post(
         await tx.execute({ sql: "DELETE FROM events WHERE year = ? AND month = ?", args: [year, month] });
       }
 
-      for (const e of events) {
+      for (const e of validated) {
         const info = await tx.execute({
           sql: `INSERT INTO events (year, month, day, time, name_en, name_zh, name_ja, color, template_id, needs_signup)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -224,23 +281,22 @@ router.post(
             year,
             month,
             e.day,
-            e.time || "",
-            e.name_en || "",
-            e.name_zh || "",
-            e.name_ja || "",
-            e.color || "yellow",
-            e.template_id || null,
-            e.needs_signup === false ? 0 : 1,
+            e.time,
+            e.name_en,
+            e.name_zh,
+            e.name_ja,
+            e.color,
+            e.template_id,
+            e.needs_signup,
           ],
         });
         const eventId = Number(info.lastInsertRowid);
-        const roles = e.roles || [];
-        for (let i = 0; i < roles.length; i++) {
-          const r = roles[i];
+        for (let i = 0; i < e.roles.length; i++) {
+          const r = e.roles[i];
           await tx.execute({
             sql: `INSERT INTO event_roles (event_id, name_en, name_zh, name_ja, limit_count, sort_order)
                   VALUES (?, ?, ?, ?, ?, ?)`,
-            args: [eventId, r.name_en, r.name_zh || "", r.name_ja || "", r.limit_count || 1, i],
+            args: [eventId, r.name_en, r.name_zh, r.name_ja, r.limit_count, i],
           });
         }
         ids.push(eventId);
@@ -262,25 +318,16 @@ router.put(
     const existing = await client.execute({ sql: "SELECT id FROM events WHERE id = ?", args: [id] });
     if (!existing.rows[0]) return res.status(404).json({ error: "Event not found" });
 
-    const { day, time, name_en, name_zh, name_ja, color, needs_signup, template_id, roles = [] } =
-      req.body || {};
+    const result = validateEventInput(req.body || {}, 0);
+    if (result.error) return res.status(400).json({ error: result.error });
+    const e = result.value;
 
     const tx = await client.transaction("write");
     try {
       await tx.execute({
         sql: `UPDATE events SET day=?, time=?, name_en=?, name_zh=?, name_ja=?, color=?, needs_signup=?, template_id=?
               WHERE id=?`,
-        args: [
-          day,
-          time || "",
-          name_en || "",
-          name_zh || "",
-          name_ja || "",
-          color || "yellow",
-          needs_signup === false ? 0 : 1,
-          template_id || null,
-          id,
-        ],
+        args: [e.day, e.time, e.name_en, e.name_zh, e.name_ja, e.color, e.needs_signup, e.template_id, id],
       });
 
       // roles are being fully replaced — explicitly clear out sign-ups tied
@@ -291,8 +338,8 @@ router.put(
       }
       await tx.execute({ sql: "DELETE FROM event_roles WHERE event_id = ?", args: [id] });
 
-      for (let i = 0; i < roles.length; i++) {
-        const r = roles[i];
+      for (let i = 0; i < e.roles.length; i++) {
+        const r = e.roles[i];
         await tx.execute({
           sql: `INSERT INTO event_roles (event_id, name_en, name_zh, name_ja, limit_count, sort_order)
                 VALUES (?, ?, ?, ?, ?, ?)`,

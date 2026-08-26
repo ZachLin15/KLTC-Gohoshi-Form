@@ -44,6 +44,16 @@ body {
   color: var(--text);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  /* Safety net: a stray element that doesn't shrink on some phone width
+     (this has happened more than once — fixed-width titles, native file
+     inputs, etc.) should never be able to force the whole page to scroll
+     sideways. Individual overflowing elements still get fixed at the
+     source, but this stops any future miss from breaking the page. */
+  overflow-x: hidden;
+}
+
+input[type="file"] {
+  max-width: 100%;
 }
 
 button {
@@ -156,5 +166,23 @@ textarea {
     gap: 14px !important;
     flex-wrap: wrap;
     row-gap: 8px;
+  }
+}
+
+/* Smaller/older phones (iPhone SE, many budget Android devices sit at
+   320-360px CSS width) — the month header row (← August 2026 →) was wide
+   enough to overflow the viewport at these sizes, forcing the whole page
+   to scroll horizontally. Shrink the title's forced minimum width, gaps,
+   and font size so everything fits without needing to scroll. */
+@media (max-width: 400px) {
+  .container {
+    padding: 0 12px;
+  }
+  .month-bar {
+    gap: 8px !important;
+  }
+  .month-title {
+    min-width: 0 !important;
+    font-size: 1.3rem !important;
   }
 }

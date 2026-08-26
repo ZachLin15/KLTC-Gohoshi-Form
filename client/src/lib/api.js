@@ -29,6 +29,7 @@ export const api = {
   // public
   getEvents: (year, month) => request(`/events?year=${year}&month=${month}`),
   getEvent: (id) => request(`/events/${id}`),
+  getEventsForDay: (year, month, day) => request(`/events/day?year=${year}&month=${month}&day=${day}`),
   signUp: (eventId, role_id, name) =>
     request(`/events/${eventId}/signup`, {
       method: "POST",

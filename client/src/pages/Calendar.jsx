@@ -3,6 +3,7 @@ import { useI18n } from "../i18n";
 import { api } from "../lib/api";
 import { colorVars } from "../lib/colors";
 import EventModal from "../components/EventModal";
+import DayPanel from "../components/DayPanel";
 import Spinner from "../components/Spinner";
 
 const INTL_LOCALE = { en: "en-US", zh: "zh-CN", ja: "ja-JP" };
@@ -47,6 +48,7 @@ export default function Calendar() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedDay, setSelectedDay] = useState(null);
   const [retryTick, setRetryTick] = useState(0);
 
   useEffect(() => {
@@ -111,6 +113,7 @@ export default function Calendar() {
   }, [events]);
 
   function goPrev() {
+    setSelectedDay(null);
     if (month === 1) {
       setMonth(12);
       setYear((y) => y - 1);
@@ -119,6 +122,7 @@ export default function Calendar() {
     }
   }
   function goNext() {
+    setSelectedDay(null);
     if (month === 12) {
       setMonth(1);
       setYear((y) => y + 1);
@@ -135,12 +139,12 @@ export default function Calendar() {
   while (cells.length % 7 !== 0) cells.push(null);
 
   return (
-    <div className="container" style={{ paddingTop: 32, paddingBottom: 60 }}>
-      <div style={styles.monthBar}>
+    <div className="container" style={{ paddingTop: 32, paddingBottom: 60, maxWidth: selectedDay && !isMobile ? 1240 : 1040 }}>
+      <div className="month-bar" style={styles.monthBar}>
         <button className="btn-ghost btn" onClick={goPrev} aria-label={t("calendar.prevMonth")}>
           ←
         </button>
-        <h1 style={styles.monthTitle}>
+        <h1 className="month-title" style={styles.monthTitle}>
           {monthLabel} <span style={styles.year}>{year}</span>
         </h1>
         <button className="btn-ghost btn" onClick={goNext} aria-label={t("calendar.nextMonth")}>
@@ -163,46 +167,65 @@ export default function Calendar() {
         </div>
       )}
 
-      {!loadError && isMobile ? (
-        <AgendaList
-          total={total}
-          eventsByDay={eventsByDay}
-          onSelect={setSelectedEvent}
-          pickLang={pickLang}
-          t={t}
-          locale={locale}
-          year={year}
-          month={month}
-          loading={loading}
-        />
-      ) : !loadError ? (
-        <>
-          <div style={styles.weekHeader}>
-            {WEEKDAY_KEYS.map((k) => (
-              <div key={k} style={styles.weekHeaderCell}>
-                {t(`calendar.${k}`)}
-              </div>
-            ))}
-          </div>
+      <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
+        {selectedDay && !isMobile && (
+          <DayPanel
+            year={year}
+            month={month}
+            day={selectedDay}
+            onClose={() => setSelectedDay(null)}
+            onSelectEvent={setSelectedEvent}
+            pickLang={pickLang}
+            locale={locale}
+            t={t}
+          />
+        )}
 
-          <div style={styles.grid}>
-            {cells.map((d, i) =>
-              d === null ? (
-                <div key={i} style={styles.emptyCell} />
-              ) : (
-                <DayCell
-                  key={i}
-                  day={d}
-                  events={eventsByDay[d] || []}
-                  onSelect={setSelectedEvent}
-                  pickLang={pickLang}
-                  t={t}
-                />
-              )
-            )}
-          </div>
-        </>
-      ) : null}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {!loadError && isMobile ? (
+            <AgendaList
+              total={total}
+              eventsByDay={eventsByDay}
+              onSelect={setSelectedEvent}
+              pickLang={pickLang}
+              t={t}
+              locale={locale}
+              year={year}
+              month={month}
+              loading={loading}
+            />
+          ) : !loadError ? (
+            <>
+              <div style={styles.weekHeader}>
+                {WEEKDAY_KEYS.map((k) => (
+                  <div key={k} style={styles.weekHeaderCell}>
+                    {t(`calendar.${k}`)}
+                  </div>
+                ))}
+              </div>
+
+              <div style={styles.grid}>
+                {cells.map((d, i) =>
+                  d === null ? (
+                    <div key={i} style={styles.emptyCell} />
+                  ) : (
+                    <DayCell
+                      key={i}
+                      day={d}
+                      events={eventsByDay[d] || []}
+                      onSelect={setSelectedEvent}
+                      onSelectDay={setSelectedDay}
+                      isSelected={selectedDay === d}
+                      pickLang={pickLang}
+                      t={t}
+                    />
+                  )
+                )}
+              </div>
+            </>
+          ) : null}
+        </div>
+      </div>
 
       {!loading && !loadError && !isMobile && events.length === 0 && (
         <p style={{ color: "var(--text-dim)", textAlign: "center", marginTop: 40 }}>
@@ -221,10 +244,17 @@ export default function Calendar() {
   );
 }
 
-function DayCell({ day, events, onSelect, pickLang, t }) {
+function DayCell({ day, events, onSelect, onSelectDay, isSelected, pickLang, t }) {
   return (
-    <div style={styles.dayCell}>
-      <div style={styles.dayNum}>{day}</div>
+    <div style={{ ...styles.dayCell, ...(isSelected ? styles.dayCellSelected : {}) }}>
+      <button
+        type="button"
+        onClick={() => onSelectDay(day)}
+        style={{ ...styles.dayNum, ...(isSelected ? styles.dayNumSelected : {}) }}
+        title={t("dayPanel.viewDay")}
+      >
+        {day}
+      </button>
       <div style={styles.dayEvents}>
         {events.map((e) => {
           const colors = colorVars(e.color);
@@ -373,11 +403,26 @@ const styles = {
     gap: 4,
     overflow: "hidden",
   },
+  dayCellSelected: {
+    borderColor: "var(--gold)",
+    boxShadow: "0 0 0 1px var(--gold)",
+  },
   dayNum: {
     fontSize: "0.78rem",
     color: "var(--text-dim)",
     fontFamily: "var(--font-mono)",
     fontWeight: 600,
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    padding: "1px 5px",
+    borderRadius: 4,
+    alignSelf: "flex-start",
+    marginLeft: -5,
+  },
+  dayNumSelected: {
+    background: "var(--gold)",
+    color: "#fff",
   },
   dayEvents: {
     display: "flex",

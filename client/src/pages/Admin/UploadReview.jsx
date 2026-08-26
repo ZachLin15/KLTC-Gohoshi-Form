@@ -101,6 +101,14 @@ export default function UploadReview() {
 
   async function save() {
     if (!parsed) return;
+    const missingDayRows = rows.filter((r) => {
+      const d = r.date ?? r.day;
+      return d === null || d === undefined || Number.isNaN(Number(d));
+    });
+    if (missingDayRows.length > 0) {
+      setError(t("admin.review.fixDaysFirst", { count: missingDayRows.length }));
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -140,7 +148,13 @@ export default function UploadReview() {
             {t("admin.upload.title")}
           </h2>
           <p style={{ color: "var(--text-dim)", maxWidth: 640 }}>{t("admin.upload.helper")}</p>
-          <input ref={fileRef} type="file" accept="application/pdf" onChange={handleFile} />
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/pdf"
+            onChange={handleFile}
+            style={{ width: "100%", maxWidth: "100%" }}
+          />
           {parsing && <p style={{ color: "var(--text-dim)" }}>{t("admin.upload.parsing")}</p>}
           {error && <p style={{ color: "#b3453f" }}>{error}</p>}
           {savedMsg && <p style={{ color: "var(--c-green-line)" }}>{savedMsg}</p>}
@@ -202,14 +216,29 @@ export default function UploadReview() {
 
 function RowEditor({ row, templates, t, onChange, onApplyTemplate, onRemove, onUpdateRole, onAddRole, onRemoveRole }) {
   const colors = colorVars(row.color);
+  const dayValue = row.date ?? row.day;
+  const dayMissing = dayValue === null || dayValue === undefined || Number.isNaN(Number(dayValue));
   return (
-    <div className="card" style={{ padding: 16, borderLeft: `4px solid ${colors.line}` }}>
+    <div
+      className="card"
+      style={{
+        padding: 16,
+        borderLeft: `4px solid ${dayMissing ? "#b3453f" : colors.line}`,
+      }}
+    >
+      {dayMissing && (
+        <div style={rowStyles.warning}>{t("admin.review.dayMissing")}</div>
+      )}
       <div style={rowStyles.topLine}>
         <input
           type="number"
-          value={row.date ?? row.day}
+          value={dayValue ?? ""}
           onChange={(e) => onChange({ date: Number(e.target.value), day: Number(e.target.value) })}
-          style={rowStyles.smallInput}
+          style={{
+            ...rowStyles.smallInput,
+            ...(dayMissing ? { borderColor: "#b3453f", background: "#fdf2f0" } : {}),
+          }}
+          placeholder="?"
           title={t("admin.review.day")}
         />
         <input
@@ -308,6 +337,15 @@ function RowEditor({ row, templates, t, onChange, onApplyTemplate, onRemove, onU
 }
 
 const rowStyles = {
+  warning: {
+    background: "#fdf2f0",
+    color: "#8a4a3f",
+    fontSize: "0.78rem",
+    fontWeight: 600,
+    padding: "6px 10px",
+    borderRadius: 6,
+    marginBottom: 10,
+  },
   topLine: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" },
   smallInput: { width: 56 },
   timeInput: { width: 80 },

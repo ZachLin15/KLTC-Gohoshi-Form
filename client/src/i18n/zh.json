@@ -111,5 +111,12 @@
   "mySignups.none": "未找到该姓名的报名记录。",
   "mySignups.error": "查询失败，请重试。",
   "mySignups.upcoming": "即将到来",
-  "mySignups.past": "已过去"
+  "mySignups.past": "已过去",
+  "admin.review.dayMissing": "⚠ 无法确定此活动的日期，请在保存前手动设置。",
+  "admin.review.fixDaysFirst": "有 {count} 个活动缺少有效日期，请先修正标红的项目后再保存。",
+  "dayPanel.viewDay": "查看当天的报名情况",
+  "dayPanel.error": "无法加载当天信息，请重试。",
+  "dayPanel.noEvents": "当天没有活动。",
+  "dayPanel.openToSignUp": "点击打开并报名",
+  "dayPanel.noSignupsYet": "暂无人报名。"
 }

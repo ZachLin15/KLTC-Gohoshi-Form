@@ -14,8 +14,19 @@ Outputs JSON to stdout:
 }
 
 Layout notes (poppler/pdfplumber coordinates, top-down):
-  columns: date(81-94) | day-of-week(94-113) | time(113-133) |
-           description EN・ZH(133-421) | zoom/sesshin/robe/shakujo(421-531)
+  columns (left to right): date | day-of-week | time | description EN・ZH |
+  zoom/sesshin/robe/shakujo icon columns.
+
+  IMPORTANT: column x-positions are NOT hardcoded. Earlier versions of this
+  parser used fixed pixel ranges based on one sample PDF, which broke
+  silently (extracting zero events, no error) the moment Shinnyo-en's
+  template shifted by even ~10px between months (confirmed: the Sept 2026
+  schedule's whole table sits ~11-13px further right than Aug 2026's,
+  apparently because the header title wraps to two lines that month). Every
+  column boundary here is instead detected per-document from distinctive,
+  layout-independent content: day-of-week words (Mon/Tue/...) anchor the
+  whole scheme, since they're unambiguous regardless of exact positioning.
+
   Each day is a table row that can span multiple physical text lines when an
   event's name wraps (English on one line, Chinese continuation on the next,
   prefixed with "・"). The date number/day-of-week are only printed once,
@@ -38,6 +49,7 @@ COLOR_NAMES = {
 }
 
 EVENT_COLORS = {"yellow", "pink", "peach", "green"}
+DOW_WORDS = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
 
 
 def classify_color(rgb):
@@ -93,6 +105,56 @@ def cascade_marker(markers, y, buffer=6):
     return best_i
 
 
+def detect_columns(page, words):
+    """Detects the x-ranges of the date / day-of-week / time / description
+    columns from the document's own content, so this doesn't break when
+    Shinnyo-en's template shifts. Anchored on day-of-week words first since
+    they're unambiguous ("Mon", "Tue", ...) regardless of exact layout."""
+    dow_words = [w for w in words if w["text"] in DOW_WORDS]
+    if not dow_words:
+        raise ValueError("Could not find any day-of-week labels (Mon/Tue/...) in this PDF — layout may have changed too much to parse automatically.")
+    dow_x0 = min(w["x0"] for w in dow_words)
+    dow_x1 = max(w["x1"] for w in dow_words)
+
+    # date column: bare 1-2 digit numbers immediately left of the dow column
+    date_words = [
+        w for w in words
+        if w["x0"] < dow_x0 and re.match(r"^\d{1,2}$", w["text"])
+    ]
+    date_x0 = min((w["x0"] for w in date_words), default=dow_x0 - 20) - 4
+
+    # time column: time-pattern words immediately right of the dow column
+    time_words_all = [
+        w for w in words
+        if w["x0"] > dow_x1 and (re.match(r"^\d{1,2}:\d{2}$", w["text"]) or w["text"] == "~")
+    ]
+    if not time_words_all:
+        raise ValueError("Could not find any time values (e.g. 10:00) in this PDF — layout may have changed too much to parse automatically.")
+    time_x0 = min(w["x0"] for w in time_words_all) - 3
+    time_x1 = max(w["x1"] for w in time_words_all) + 3
+
+    # description column: right after the time column, up to the ZOOM/icon
+    # columns (detected via "ZOOM" cells; falls back to a generous default
+    # if a month happens to have zero zoom events)
+    zoom_words = [w for w in words if w["text"] == "ZOOM" and w["x0"] > time_x1]
+    if zoom_words:
+        desc_x1 = min(w["x0"] for w in zoom_words) - 3
+    else:
+        desc_x1 = page.width * 0.7
+
+    return {
+        "date_x0": date_x0,
+        "date_x1": dow_x0 - 1,
+        "dow_x0": dow_x0 - 1,
+        "dow_x1": time_x0,
+        "time_x0": time_x0,
+        "time_x1": time_x1,
+        "desc_x0": time_x1,
+        "desc_x1": desc_x1,
+        "fill_x_threshold": time_x1 + 15,  # background-fill rects start at/before the date column
+    }
+
+
 def parse(path):
     with pdfplumber.open(path) as pdf:
         page = pdf.pages[0]
@@ -104,10 +166,11 @@ def parse(path):
             month, year = m.group(1), int(m.group(3))
 
         words = page.extract_words()
+        cols = detect_columns(page, words)
 
         date_markers = []
         for w in words:
-            if 78 <= w["x0"] <= 96 and re.match(r"^\d{1,2}$", w["text"]):
+            if cols["date_x0"] <= w["x0"] < cols["date_x1"] and re.match(r"^\d{1,2}$", w["text"]):
                 date_markers.append((w["top"], int(w["text"])))
         date_markers.sort(key=lambda t: t[0])
         seen = set()
@@ -118,10 +181,10 @@ def parse(path):
                 seen.add(d)
         date_markers = clean
 
-        time_words = [w for w in words if 113 <= w["x0"] < 133]
+        time_words = [w for w in words if cols["time_x0"] <= w["x0"] < cols["time_x1"]]
         time_lines = group_lines(time_words)
-        time_markers = [(tl["top"], tl["text"].strip()) for tl in time_lines if tl["text"].strip()]
-        time_markers.sort(key=lambda t: t[0])
+        time_markers_all = [(tl["top"], tl["text"].strip()) for tl in time_lines if tl["text"].strip()]
+        time_markers_all.sort(key=lambda t: t[0])
 
         fill_rects = []
         for r in page.rects:
@@ -129,7 +192,7 @@ def parse(path):
                 continue
             w = r["x1"] - r["x0"]
             h = r["bottom"] - r["top"]
-            if w > 50 and h > 2 and r["x0"] < 120:
+            if w > 50 and h > 2 and r["x0"] < cols["fill_x_threshold"]:
                 color = classify_color(r.get("non_stroking_color"))
                 if color:
                     fill_rects.append((r["top"], r["bottom"], color))
@@ -140,7 +203,18 @@ def parse(path):
                     return color
             return None
 
-        desc_words = [w for w in words if 133 <= w["x0"] < 421]
+        # Only use time markers whose own row is actually a highlighted
+        # event when grouping colored text lines. Without this, a colored
+        # header line with no time of its own (e.g. "Shinnyo KLTC Day") can
+        # get mis-attributed to the nearest time slot on the page even when
+        # that slot belongs to a *different, unhighlighted* event — the
+        # excluded event's time marker is still physically present, just not
+        # a valid attachment point for grouping.
+        time_markers = [tm for tm in time_markers_all if color_at(tm[0]) in EVENT_COLORS]
+        if not time_markers:
+            time_markers = time_markers_all  # defensive fallback
+
+        desc_words = [w for w in words if cols["desc_x0"] <= w["x0"] < cols["desc_x1"]]
         desc_lines = group_lines(desc_words)
 
         colored_lines = []

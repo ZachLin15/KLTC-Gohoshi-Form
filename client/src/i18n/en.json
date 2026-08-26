@@ -111,5 +111,12 @@
   "mySignups.none": "No sign-ups found for that name.",
   "mySignups.error": "Couldn't look that up — please try again.",
   "mySignups.upcoming": "Upcoming",
-  "mySignups.past": "Past"
+  "mySignups.past": "Past",
+  "admin.review.dayMissing": "⚠ Couldn't determine the date for this event — please set it manually before saving.",
+  "admin.review.fixDaysFirst": "{count} event(s) are missing a valid date — please fix the highlighted row(s) before saving.",
+  "dayPanel.viewDay": "View who's signed up for this day",
+  "dayPanel.error": "Couldn't load this day — please try again.",
+  "dayPanel.noEvents": "No events on this day.",
+  "dayPanel.openToSignUp": "Tap to open and sign up",
+  "dayPanel.noSignupsYet": "No one has signed up yet."
 }
