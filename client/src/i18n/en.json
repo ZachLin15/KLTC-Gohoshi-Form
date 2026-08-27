@@ -118,5 +118,15 @@
   "dayPanel.error": "Couldn't load this day — please try again.",
   "dayPanel.noEvents": "No events on this day.",
   "dayPanel.openToSignUp": "Tap to open and sign up",
-  "dayPanel.noSignupsYet": "No one has signed up yet."
+  "dayPanel.noSignupsYet": "No one has signed up yet.",
+  "admin.tabs.calendars": "Calendars",
+  "admin.calendars.workingIn": "Working in:",
+  "admin.calendars.title": "Calendars",
+  "admin.calendars.helper": "Create a separate calendar to keep a different event series apart from the main one — its own events, roles, and sign-ups, switchable via tabs on the public calendar.",
+  "admin.calendars.new": "New calendar",
+  "admin.calendars.name": "Name",
+  "admin.calendars.save": "Save calendar",
+  "admin.calendars.deleteConfirm": "Delete \"{name}\" and all of its events and sign-ups? This can't be undone.",
+  "admin.calendars.mainBadge": "Main",
+  "admin.calendars.delete": "Delete calendar"
 }

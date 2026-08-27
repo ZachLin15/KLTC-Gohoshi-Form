@@ -1,5 +1,22 @@
+-- Calendars: separate, independently-scoped event collections (e.g. "Main
+-- Calendar", "Youth Program"). Admin can create any number of these; the
+-- public switches between them via tabs. Every event belongs to exactly
+-- one calendar.
+CREATE TABLE IF NOT EXISTS calendars (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name_en TEXT NOT NULL,
+  name_zh TEXT DEFAULT '',
+  name_ja TEXT DEFAULT '',
+  is_default INTEGER NOT NULL DEFAULT 0, -- the original "Main Calendar" — cannot be deleted
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Role templates: reusable sets of roles per event type
 -- (e.g. "Sesshin Day" -> Altar Cleaning, AV, Cleaning, ...)
+-- Shared across all calendars — no strong reason to duplicate these per
+-- calendar, since they're just name+limit presets an admin can apply
+-- anywhere.
 CREATE TABLE IF NOT EXISTS role_templates (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name_en TEXT NOT NULL,
@@ -21,6 +38,7 @@ CREATE TABLE IF NOT EXISTS template_roles (
 -- Events: one per calendar entry for a given month/year/date
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  calendar_id INTEGER NOT NULL DEFAULT 1 REFERENCES calendars(id),
   year INTEGER NOT NULL,
   month INTEGER NOT NULL,     -- 1-12
   day INTEGER NOT NULL,       -- day of month
@@ -59,6 +77,5 @@ CREATE TABLE IF NOT EXISTS signups (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_signups_one_per_event
   ON signups(event_id, name_normalized);
 
-CREATE INDEX IF NOT EXISTS idx_events_month ON events(year, month);
 CREATE INDEX IF NOT EXISTS idx_event_roles_event ON event_roles(event_id);
 CREATE INDEX IF NOT EXISTS idx_signups_role ON signups(event_role_id);

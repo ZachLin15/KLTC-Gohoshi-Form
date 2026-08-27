@@ -118,5 +118,15 @@
   "dayPanel.error": "この日を読み込めませんでした。もう一度お試しください。",
   "dayPanel.noEvents": "この日の行事はありません。",
   "dayPanel.openToSignUp": "タップして開き、申し込む",
-  "dayPanel.noSignupsYet": "まだ申し込みがありません。"
+  "dayPanel.noSignupsYet": "まだ申し込みがありません。",
+  "admin.tabs.calendars": "カレンダー管理",
+  "admin.calendars.workingIn": "現在のカレンダー：",
+  "admin.calendars.title": "カレンダー管理",
+  "admin.calendars.helper": "メインカレンダーとは別に、独立したカレンダーを作成できます。独自の行事・役割・申し込みを持ち、公開カレンダーのタブで切り替えられます。",
+  "admin.calendars.new": "新しいカレンダー",
+  "admin.calendars.name": "名称",
+  "admin.calendars.save": "カレンダーを保存",
+  "admin.calendars.deleteConfirm": "「{name}」とそのすべての行事・申し込みを削除しますか？この操作は取り消せません。",
+  "admin.calendars.mainBadge": "メイン",
+  "admin.calendars.delete": "カレンダーを削除"
 }

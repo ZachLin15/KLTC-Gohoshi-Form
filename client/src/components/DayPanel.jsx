@@ -5,7 +5,7 @@ import { LoadingBlock } from "./Spinner";
 
 const INTL_LOCALE = { en: "en-US", zh: "zh-CN", ja: "ja-JP" };
 
-export default function DayPanel({ year, month, day, onClose, onSelectEvent, pickLang, locale, t }) {
+export default function DayPanel({ year, month, day, calendarId, onClose, onSelectEvent, pickLang, locale, t }) {
   const [events, setEvents] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -15,14 +15,14 @@ export default function DayPanel({ year, month, day, onClose, onSelectEvent, pic
     setLoading(true);
     setError(false);
     api
-      .getEventsForDay(year, month, day)
+      .getEventsForDay(year, month, day, calendarId)
       .then((data) => !cancelled && setEvents(data))
       .catch(() => !cancelled && setError(true))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
-  }, [year, month, day]);
+  }, [year, month, day, calendarId]);
 
   const dateLabel = new Intl.DateTimeFormat(INTL_LOCALE[locale] || "en-US", {
     weekday: "long",

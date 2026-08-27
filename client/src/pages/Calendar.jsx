@@ -42,6 +42,8 @@ export default function Calendar() {
   const { t, pickLang, locale } = useI18n();
   const isMobile = useIsMobile();
   const today = new Date();
+  const [calendars, setCalendars] = useState([]);
+  const [calendarId, setCalendarId] = useState(1);
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [events, setEvents] = useState([]);
@@ -52,8 +54,22 @@ export default function Calendar() {
   const [retryTick, setRetryTick] = useState(0);
 
   useEffect(() => {
+    api
+      .getCalendars()
+      .then((data) => setCalendars(data.length > 0 ? data : [{ id: 1, name_en: "Main Calendar", name_zh: "", name_ja: "" }]))
+      .catch(() => setCalendars([{ id: 1, name_en: "Main Calendar", name_zh: "", name_ja: "" }]));
+  }, []);
+
+  function selectCalendar(id) {
+    if (id === calendarId) return;
+    setCalendarId(id);
+    setSelectedDay(null);
+    setSelectedEvent(null);
+  }
+
+  useEffect(() => {
     let cancelled = false;
-    const cacheKey = `${year}-${month}`;
+    const cacheKey = `${calendarId}-${year}-${month}`;
     const cached = monthCache.get(cacheKey);
     if (cached && Date.now() - cached.fetchedAt < MONTH_CACHE_TTL_MS) {
       setEvents(cached.data);
@@ -67,7 +83,7 @@ export default function Calendar() {
 
     function attempt(isRetry) {
       return api
-        .getEvents(year, month)
+        .getEvents(year, month, calendarId)
         .then((data) => {
           if (cancelled) return;
           monthCache.set(cacheKey, { data, fetchedAt: Date.now() });
@@ -94,7 +110,7 @@ export default function Calendar() {
     return () => {
       cancelled = true;
     };
-  }, [year, month, retryTick]);
+  }, [year, month, calendarId, retryTick]);
 
   const monthLabel = useMemo(
     () =>
@@ -140,6 +156,23 @@ export default function Calendar() {
 
   return (
     <div className="container" style={{ paddingTop: 32, paddingBottom: 60, maxWidth: selectedDay && !isMobile ? 1240 : 1040 }}>
+      {calendars.length > 1 && (
+        <div style={styles.calendarTabs}>
+          {calendars.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => selectCalendar(c.id)}
+              style={{
+                ...styles.calendarTab,
+                ...(c.id === calendarId ? styles.calendarTabActive : {}),
+              }}
+            >
+              {pickLang(c, "name")}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="month-bar" style={styles.monthBar}>
         <button className="btn-ghost btn" onClick={goPrev} aria-label={t("calendar.prevMonth")}>
           ←
@@ -173,6 +206,7 @@ export default function Calendar() {
             year={year}
             month={month}
             day={selectedDay}
+            calendarId={calendarId}
             onClose={() => setSelectedDay(null)}
             onSelectEvent={setSelectedEvent}
             pickLang={pickLang}
@@ -246,22 +280,30 @@ export default function Calendar() {
 
 function DayCell({ day, events, onSelect, onSelectDay, isSelected, pickLang, t }) {
   return (
-    <div style={{ ...styles.dayCell, ...(isSelected ? styles.dayCellSelected : {}) }}>
-      <button
-        type="button"
-        onClick={() => onSelectDay(day)}
+    <div
+      onClick={() => onSelectDay(day)}
+      style={{
+        ...styles.dayCell,
+        ...(isSelected ? styles.dayCellSelected : {}),
+        cursor: "pointer",
+      }}
+      title={t("dayPanel.viewDay")}
+    >
+      <span
         style={{ ...styles.dayNum, ...(isSelected ? styles.dayNumSelected : {}) }}
-        title={t("dayPanel.viewDay")}
       >
         {day}
-      </button>
+      </span>
       <div style={styles.dayEvents}>
         {events.map((e) => {
           const colors = colorVars(e.color);
           return (
             <button
               key={e.id}
-              onClick={() => onSelect(e)}
+              onClick={(ev) => {
+                ev.stopPropagation(); // open the sign-up modal, not the day panel
+                onSelect(e);
+              }}
               style={{
                 ...styles.eventChip,
                 background: colors.bg,
@@ -334,6 +376,33 @@ function AgendaList({ total, eventsByDay, onSelect, pickLang, t, locale, year, m
 }
 
 const styles = {
+  calendarTabs: {
+    display: "flex",
+    justifyContent: "center",
+    gap: 4,
+    marginBottom: 20,
+    background: "var(--paper-dim)",
+    borderRadius: 999,
+    padding: 3,
+    width: "fit-content",
+    marginLeft: "auto",
+    marginRight: "auto",
+  },
+  calendarTab: {
+    border: "none",
+    background: "transparent",
+    color: "var(--text-dim)",
+    padding: "8px 18px",
+    borderRadius: 999,
+    fontWeight: 600,
+    fontSize: "0.85rem",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+  calendarTabActive: {
+    background: "var(--ink)",
+    color: "var(--paper)",
+  },
   errorBlock: {
     textAlign: "center",
     padding: "32px 20px",

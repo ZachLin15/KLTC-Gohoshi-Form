@@ -6,18 +6,22 @@ import UploadReview from "./UploadReview";
 import ManageEvents from "./ManageEvents";
 import Templates from "./Templates";
 import Report from "./Report";
+import Calendars from "./Calendars";
 
 const TABS = [
-  { key: "upload", labelKey: "admin.tabs.upload", Component: UploadReview },
-  { key: "events", labelKey: "admin.tabs.events", Component: ManageEvents },
-  { key: "report", labelKey: "admin.tabs.report", Component: Report },
-  { key: "templates", labelKey: "admin.tabs.templates", Component: Templates },
+  { key: "upload", labelKey: "admin.tabs.upload", Component: UploadReview, needsCalendar: true },
+  { key: "events", labelKey: "admin.tabs.events", Component: ManageEvents, needsCalendar: true },
+  { key: "report", labelKey: "admin.tabs.report", Component: Report, needsCalendar: true },
+  { key: "templates", labelKey: "admin.tabs.templates", Component: Templates, needsCalendar: false },
+  { key: "calendars", labelKey: "admin.tabs.calendars", Component: Calendars, needsCalendar: false },
 ];
 
 export default function AdminApp() {
-  const { t } = useI18n();
+  const { t, pickLang } = useI18n();
   const [isAdmin, setIsAdmin] = useState(null); // null = checking
   const [tab, setTab] = useState("upload");
+  const [calendars, setCalendars] = useState([]);
+  const [calendarId, setCalendarId] = useState(1);
 
   useEffect(() => {
     api
@@ -25,6 +29,23 @@ export default function AdminApp() {
       .then((d) => setIsAdmin(d.isAdmin))
       .catch(() => setIsAdmin(false));
   }, []);
+
+  function loadCalendars() {
+    api
+      .adminGetCalendars()
+      .then((data) => {
+        setCalendars(data);
+        if (data.length > 0 && !data.some((c) => c.id === calendarId)) {
+          setCalendarId(data[0].id);
+        }
+      })
+      .catch(() => {});
+  }
+
+  useEffect(() => {
+    if (isAdmin) loadCalendars();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin]);
 
   async function logout() {
     await api.adminLogout();
@@ -34,11 +55,12 @@ export default function AdminApp() {
   if (isAdmin === null) return null;
   if (!isAdmin) return <AdminLogin onLoggedIn={() => setIsAdmin(true)} />;
 
-  const ActiveTab = TABS.find((tb) => tb.key === tab).Component;
+  const activeTabDef = TABS.find((tb) => tb.key === tab);
+  const ActiveTab = activeTabDef.Component;
 
   return (
     <div className="container" style={{ paddingTop: 28, paddingBottom: 60 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", rowGap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", rowGap: 10 }}>
         <div style={{ display: "flex", gap: 4, background: "var(--paper-dim)", borderRadius: 999, padding: 3, flexWrap: "wrap", rowGap: 4 }}>
           {TABS.map((tb) => (
             <button
@@ -64,7 +86,28 @@ export default function AdminApp() {
         </button>
       </div>
 
-      <ActiveTab />
+      {activeTabDef.needsCalendar && calendars.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+          <label style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-dim)" }}>
+            {t("admin.calendars.workingIn")}
+          </label>
+          <select value={calendarId} onChange={(e) => setCalendarId(Number(e.target.value))}>
+            {calendars.map((c) => (
+              <option key={c.id} value={c.id}>
+                {pickLang(c, "name")}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {activeTabDef.needsCalendar ? (
+        <ActiveTab calendarId={calendarId} calendars={calendars} />
+      ) : tab === "calendars" ? (
+        <ActiveTab onChanged={loadCalendars} />
+      ) : (
+        <ActiveTab />
+      )}
     </div>
   );
 }

@@ -24,7 +24,7 @@ function emptyNewEvent(year, month) {
   };
 }
 
-export default function ManageEvents() {
+export default function ManageEvents({ calendarId }) {
   const { t, pickLang } = useI18n();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -47,7 +47,7 @@ export default function ManageEvents() {
   function load() {
     setLoading(true);
     api
-      .adminGetEvents(year, month)
+      .adminGetEvents(year, month, calendarId)
       .then((data) => {
         setEvents(data);
         setSelected(new Set());
@@ -56,7 +56,7 @@ export default function ManageEvents() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(load, [year, month]);
+  useEffect(load, [year, month, calendarId]);
   useEffect(() => {
     api.adminGetTemplates().then(setTemplates).catch(() => {});
   }, []);
@@ -232,6 +232,7 @@ export default function ManageEvents() {
       await api.adminBulkCreateEvents({
         year: newEvent.year,
         month: newEvent.month,
+        calendar_id: calendarId,
         replace: false,
         events: [
           {

@@ -4,7 +4,7 @@ import { api } from "../../lib/api";
 import { colorVars } from "../../lib/colors";
 import { LoadingBlock } from "../../components/Spinner";
 
-export default function Report() {
+export default function Report({ calendarId }) {
   const { t, pickLang } = useI18n();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -15,13 +15,13 @@ export default function Report() {
   function load() {
     setLoading(true);
     api
-      .adminGetReport(year, month)
+      .adminGetReport(year, month, calendarId)
       .then(setEvents)
       .catch(() => setEvents([]))
       .finally(() => setLoading(false));
   }
 
-  useEffect(load, [year, month]);
+  useEffect(load, [year, month, calendarId]);
 
   const totalSignups = events.reduce(
     (sum, e) => sum + e.roles.reduce((s, r) => s + r.signups.length, 0),
@@ -50,7 +50,7 @@ export default function Report() {
           ))}
         </select>
         <a
-          href={api.adminReportCsvUrl(year, month)}
+          href={api.adminReportCsvUrl(year, month, calendarId)}
           className="btn btn-gold"
           style={{ marginLeft: "auto", textDecoration: "none" }}
         >

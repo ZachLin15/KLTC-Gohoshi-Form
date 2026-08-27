@@ -27,9 +27,11 @@ async function request(path, options = {}) {
 
 export const api = {
   // public
-  getEvents: (year, month) => request(`/events?year=${year}&month=${month}`),
+  getCalendars: () => request(`/calendars`),
+  getEvents: (year, month, calendarId = 1) => request(`/events?year=${year}&month=${month}&calendar_id=${calendarId}`),
   getEvent: (id) => request(`/events/${id}`),
-  getEventsForDay: (year, month, day) => request(`/events/day?year=${year}&month=${month}&day=${day}`),
+  getEventsForDay: (year, month, day, calendarId = 1) =>
+    request(`/events/day?year=${year}&month=${month}&day=${day}&calendar_id=${calendarId}`),
   signUp: (eventId, role_id, name) =>
     request(`/events/${eventId}/signup`, {
       method: "POST",
@@ -42,6 +44,14 @@ export const api = {
     request(`/admin/login`, { method: "POST", body: JSON.stringify({ password }) }),
   adminLogout: () => request(`/admin/logout`, { method: "POST" }),
   adminMe: () => request(`/admin/me`),
+
+  // admin: calendars
+  adminGetCalendars: () => request(`/admin/calendars`),
+  adminCreateCalendar: (payload) =>
+    request(`/admin/calendars`, { method: "POST", body: JSON.stringify(payload) }),
+  adminUpdateCalendar: (id, payload) =>
+    request(`/admin/calendars/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+  adminDeleteCalendar: (id) => request(`/admin/calendars/${id}`, { method: "DELETE" }),
 
   // admin: pdf + events
   uploadPdf: async (file) => {
@@ -56,7 +66,8 @@ export const api = {
     if (!res.ok) throw new Error(data.error || "Upload failed");
     return data;
   },
-  adminGetEvents: (year, month) => request(`/admin/events?year=${year}&month=${month}`),
+  adminGetEvents: (year, month, calendarId = 1) =>
+    request(`/admin/events?year=${year}&month=${month}&calendar_id=${calendarId}`),
   adminGetEvent: (id) => request(`/admin/events/${id}`),
   adminBulkCreateEvents: (payload) =>
     request(`/admin/events/bulk`, { method: "POST", body: JSON.stringify(payload) }),
@@ -68,8 +79,10 @@ export const api = {
   adminDeleteSignup: (id) => request(`/admin/signups/${id}`, { method: "DELETE" }),
 
   // admin: reports
-  adminGetReport: (year, month) => request(`/admin/reports/signups?year=${year}&month=${month}`),
-  adminReportCsvUrl: (year, month) => `${BASE}/admin/reports/signups.csv?year=${year}&month=${month}`,
+  adminGetReport: (year, month, calendarId = 1) =>
+    request(`/admin/reports/signups?year=${year}&month=${month}&calendar_id=${calendarId}`),
+  adminReportCsvUrl: (year, month, calendarId = 1) =>
+    `${BASE}/admin/reports/signups.csv?year=${year}&month=${month}&calendar_id=${calendarId}`,
 
   // admin: templates
   adminGetTemplates: () => request(`/admin/templates`),

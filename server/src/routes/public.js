@@ -28,24 +28,39 @@ function publicRoles(roles) {
   }));
 }
 
-// GET /api/events?year=2026&month=8
+// GET /api/calendars — list of calendars for the public tab switcher
+router.get(
+  "/calendars",
+  h(async (req, res) => {
+    const cacheKey = "calendars";
+    const cached = cache.get(cacheKey);
+    if (cached) return res.json(cached);
+    const result = await client.execute(
+      "SELECT id, name_en, name_zh, name_ja, is_default FROM calendars ORDER BY sort_order, id"
+    );
+    cache.set(cacheKey, result.rows, EVENTS_LIST_TTL_MS);
+    res.json(result.rows);
+  })
+);
+
+// GET /api/events?year=2026&month=8&calendar_id=1
 // Includes roles + live counts (no names) inline, so opening the detail
 // modal for any event on this list needs zero extra network round-trips —
 // that's what was making the modal feel slow to open before.
 router.get(
   "/events",
   h(async (req, res) => {
-    const { year, month } = req.query;
+    const { year, month, calendar_id = 1 } = req.query;
     if (!year || !month) return res.status(400).json({ error: "year and month are required" });
 
-    const cacheKey = `events:${year}:${month}`;
+    const cacheKey = `events:${calendar_id}:${year}:${month}`;
     const cached = cache.get(cacheKey);
     if (cached) return res.json(cached);
 
     const result = await client.execute({
       sql: `SELECT id, year, month, day, time, name_en, name_zh, name_ja, color, needs_signup
-            FROM events WHERE year = ? AND month = ? ORDER BY day, time`,
-      args: [year, month],
+            FROM events WHERE calendar_id = ? AND year = ? AND month = ? ORDER BY day, time`,
+      args: [calendar_id, year, month],
     });
     const events = result.rows;
 
@@ -59,7 +74,7 @@ router.get(
   })
 );
 
-// GET /api/events/day?year=2026&month=8&day=15
+// GET /api/events/day?year=2026&month=8&day=15&calendar_id=1
 // Deliberately exposes WHO signed up (not just counts) for a specific
 // day's events — this is a distinct, explicit "day roster" view (used by
 // the calendar's day-click panel), unlike the month list / single event
@@ -72,15 +87,15 @@ router.get(
 router.get(
   "/events/day",
   h(async (req, res) => {
-    const { year, month, day } = req.query;
+    const { year, month, day, calendar_id = 1 } = req.query;
     if (!year || !month || !day) {
       return res.status(400).json({ error: "year, month, and day are required" });
     }
 
     const eRes = await client.execute({
       sql: `SELECT id, year, month, day, time, name_en, name_zh, name_ja, color, needs_signup
-            FROM events WHERE year = ? AND month = ? AND day = ? ORDER BY time`,
-      args: [year, month, day],
+            FROM events WHERE calendar_id = ? AND year = ? AND month = ? AND day = ? ORDER BY time`,
+      args: [calendar_id, year, month, day],
     });
     const events = eRes.rows;
 
@@ -204,10 +219,12 @@ router.get(
       sql: `SELECT s.id AS signup_id, s.name, s.created_at,
                    e.id AS event_id, e.year, e.month, e.day, e.time, e.color,
                    e.name_en AS event_name_en, e.name_zh AS event_name_zh, e.name_ja AS event_name_ja,
-                   er.name_en AS role_name_en, er.name_zh AS role_name_zh, er.name_ja AS role_name_ja
+                   er.name_en AS role_name_en, er.name_zh AS role_name_zh, er.name_ja AS role_name_ja,
+                   c.id AS calendar_id, c.name_en AS calendar_name_en, c.name_zh AS calendar_name_zh, c.name_ja AS calendar_name_ja
             FROM signups s
             JOIN events e ON e.id = s.event_id
             JOIN event_roles er ON er.id = s.event_role_id
+            JOIN calendars c ON c.id = e.calendar_id
             WHERE s.name_normalized = ?
             ORDER BY e.year, e.month, e.day, e.time`,
       args: [nameNorm],

@@ -118,5 +118,15 @@
   "dayPanel.error": "无法加载当天信息，请重试。",
   "dayPanel.noEvents": "当天没有活动。",
   "dayPanel.openToSignUp": "点击打开并报名",
-  "dayPanel.noSignupsYet": "暂无人报名。"
+  "dayPanel.noSignupsYet": "暂无人报名。",
+  "admin.tabs.calendars": "日历管理",
+  "admin.calendars.workingIn": "当前日历：",
+  "admin.calendars.title": "日历管理",
+  "admin.calendars.helper": "创建独立日历，将不同的活动系列与主日历分开管理——拥有各自的活动、职位与报名记录，可在公开日历页面通过标签切换。",
+  "admin.calendars.new": "新建日历",
+  "admin.calendars.name": "名称",
+  "admin.calendars.save": "保存日历",
+  "admin.calendars.deleteConfirm": "删除「{name}」及其所有活动与报名记录？此操作无法撤销。",
+  "admin.calendars.mainBadge": "主日历",
+  "admin.calendars.delete": "删除日历"
 }

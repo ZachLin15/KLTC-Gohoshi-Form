@@ -212,15 +212,93 @@ router.delete(
   })
 );
 
+// ---------- calendars ----------
+router.get(
+  "/calendars",
+  h(async (req, res) => {
+    const result = await client.execute("SELECT * FROM calendars ORDER BY sort_order, id");
+    res.json(result.rows);
+  })
+);
+
+router.post(
+  "/calendars",
+  h(async (req, res) => {
+    const { name_en, name_zh = "", name_ja = "" } = req.body || {};
+    if (!name_en || !name_en.trim()) return res.status(400).json({ error: "name_en is required" });
+
+    const countRes = await client.execute("SELECT COUNT(*) AS c FROM calendars");
+    const info = await client.execute({
+      sql: "INSERT INTO calendars (name_en, name_zh, name_ja, is_default, sort_order) VALUES (?, ?, ?, 0, ?)",
+      args: [name_en.trim(), name_zh || "", name_ja || "", Number(countRes.rows[0].c)],
+    });
+    cache.clear();
+    const created = await client.execute({
+      sql: "SELECT * FROM calendars WHERE id = ?",
+      args: [Number(info.lastInsertRowid)],
+    });
+    res.json(created.rows[0]);
+  })
+);
+
+router.put(
+  "/calendars/:id",
+  h(async (req, res) => {
+    const { id } = req.params;
+    const { name_en, name_zh = "", name_ja = "" } = req.body || {};
+    if (!name_en || !name_en.trim()) return res.status(400).json({ error: "name_en is required" });
+
+    const existing = await client.execute({ sql: "SELECT id FROM calendars WHERE id = ?", args: [id] });
+    if (!existing.rows[0]) return res.status(404).json({ error: "Calendar not found" });
+
+    await client.execute({
+      sql: "UPDATE calendars SET name_en=?, name_zh=?, name_ja=? WHERE id=?",
+      args: [name_en.trim(), name_zh || "", name_ja || "", id],
+    });
+    cache.clear();
+    const updated = await client.execute({ sql: "SELECT * FROM calendars WHERE id = ?", args: [id] });
+    res.json(updated.rows[0]);
+  })
+);
+
+router.delete(
+  "/calendars/:id",
+  h(async (req, res) => {
+    const { id } = req.params;
+    const existing = await client.execute({ sql: "SELECT * FROM calendars WHERE id = ?", args: [id] });
+    if (!existing.rows[0]) return res.status(404).json({ error: "Calendar not found" });
+    if (existing.rows[0].is_default) {
+      return res.status(400).json({ error: "The main calendar can't be deleted." });
+    }
+
+    const tx = await client.transaction("write");
+    try {
+      const evRes = await tx.execute({ sql: "SELECT id FROM events WHERE calendar_id = ?", args: [id] });
+      for (const row of evRes.rows) {
+        await tx.execute({ sql: "DELETE FROM signups WHERE event_id = ?", args: [row.id] });
+        await tx.execute({ sql: "DELETE FROM event_roles WHERE event_id = ?", args: [row.id] });
+      }
+      await tx.execute({ sql: "DELETE FROM events WHERE calendar_id = ?", args: [id] });
+      await tx.execute({ sql: "DELETE FROM calendars WHERE id = ?", args: [id] });
+      await tx.commit();
+    } catch (e) {
+      await tx.rollback();
+      throw e;
+    }
+    cache.clear();
+    res.json({ ok: true });
+  })
+);
+
 // ---------- events ----------
 router.get(
   "/events",
   h(async (req, res) => {
-    const { year, month } = req.query;
+    const { year, month, calendar_id = 1 } = req.query;
     if (!year || !month) return res.status(400).json({ error: "year and month are required" });
     const eRes = await client.execute({
-      sql: "SELECT * FROM events WHERE year = ? AND month = ? ORDER BY day, time",
-      args: [year, month],
+      sql: "SELECT * FROM events WHERE calendar_id = ? AND year = ? AND month = ? ORDER BY day, time",
+      args: [calendar_id, year, month],
     });
     res.json(await attachRoles(eRes.rows));
   })
@@ -241,7 +319,7 @@ router.get(
 router.post(
   "/events/bulk",
   h(async (req, res) => {
-    const { year, month, replace = false, events = [] } = req.body || {};
+    const { year, month, calendar_id = 1, replace = false, events = [] } = req.body || {};
     if (!year || !month) return res.status(400).json({ error: "year and month are required" });
 
     // validate every row up front — reject with a clear message naming the
@@ -259,9 +337,11 @@ router.post(
       if (replace) {
         // explicit cascade (don't rely on ON DELETE CASCADE / FK pragma,
         // which can behave inconsistently over Turso's remote connection)
+        // — scoped to this calendar only, so replacing this month doesn't
+        // touch other calendars' events in the same month.
         const oldEvents = await tx.execute({
-          sql: "SELECT id FROM events WHERE year = ? AND month = ?",
-          args: [year, month],
+          sql: "SELECT id FROM events WHERE calendar_id = ? AND year = ? AND month = ?",
+          args: [calendar_id, year, month],
         });
         for (const row of oldEvents.rows) {
           await tx.execute({
@@ -270,14 +350,18 @@ router.post(
           });
           await tx.execute({ sql: "DELETE FROM event_roles WHERE event_id = ?", args: [row.id] });
         }
-        await tx.execute({ sql: "DELETE FROM events WHERE year = ? AND month = ?", args: [year, month] });
+        await tx.execute({
+          sql: "DELETE FROM events WHERE calendar_id = ? AND year = ? AND month = ?",
+          args: [calendar_id, year, month],
+        });
       }
 
       for (const e of validated) {
         const info = await tx.execute({
-          sql: `INSERT INTO events (year, month, day, time, name_en, name_zh, name_ja, color, template_id, needs_signup)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          sql: `INSERT INTO events (calendar_id, year, month, day, time, name_en, name_zh, name_ja, color, template_id, needs_signup)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           args: [
+            calendar_id,
             year,
             month,
             e.day,
@@ -414,10 +498,10 @@ router.delete(
 );
 
 // ---------- reports ----------
-async function getMonthReport(year, month) {
+async function getMonthReport(year, month, calendarId = 1) {
   const eRes = await client.execute({
-    sql: "SELECT * FROM events WHERE year = ? AND month = ? ORDER BY day, time",
-    args: [year, month],
+    sql: "SELECT * FROM events WHERE calendar_id = ? AND year = ? AND month = ? ORDER BY day, time",
+    args: [calendarId, year, month],
   });
   const events = eRes.rows;
   await attachRoles(events);
@@ -427,9 +511,9 @@ async function getMonthReport(year, month) {
 router.get(
   "/reports/signups",
   h(async (req, res) => {
-    const { year, month } = req.query;
+    const { year, month, calendar_id = 1 } = req.query;
     if (!year || !month) return res.status(400).json({ error: "year and month are required" });
-    res.json(await getMonthReport(year, month));
+    res.json(await getMonthReport(year, month, calendar_id));
   })
 );
 
@@ -442,9 +526,9 @@ function csvEscape(val) {
 router.get(
   "/reports/signups.csv",
   h(async (req, res) => {
-    const { year, month } = req.query;
+    const { year, month, calendar_id = 1 } = req.query;
     if (!year || !month) return res.status(400).json({ error: "year and month are required" });
-    const events = await getMonthReport(year, month);
+    const events = await getMonthReport(year, month, calendar_id);
 
     const rows = [["Date", "Time", "Event (EN)", "Event (ZH)", "Role (EN)", "Role (ZH)", "Signed up by", "Signed up at"]];
     for (const e of events) {

@@ -7,7 +7,7 @@ function emptyRoleRow() {
   return { name_en: "", name_zh: "", name_ja: "", limit_count: 1 };
 }
 
-export default function UploadReview() {
+export default function UploadReview({ calendarId }) {
   const { t } = useI18n();
   const fileRef = useRef(null);
   const [parsing, setParsing] = useState(false);
@@ -116,6 +116,7 @@ export default function UploadReview() {
       const payload = {
         year: parsed.year,
         month: monthNum,
+        calendar_id: calendarId,
         replace,
         events: rows.map((r) => ({
           day: r.date ?? r.day,
