@@ -128,5 +128,7 @@
   "admin.calendars.save": "カレンダーを保存",
   "admin.calendars.deleteConfirm": "「{name}」とそのすべての行事・申し込みを削除しますか？この操作は取り消せません。",
   "admin.calendars.mainBadge": "メイン",
-  "admin.calendars.delete": "カレンダーを削除"
+  "admin.calendars.delete": "カレンダーを削除",
+  "dayPanel.viewSignups": "申し込み状況を見る ▾",
+  "dayPanel.hideSignups": "閉じる ▴"
 }

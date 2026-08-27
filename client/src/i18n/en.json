@@ -128,5 +128,7 @@
   "admin.calendars.save": "Save calendar",
   "admin.calendars.deleteConfirm": "Delete \"{name}\" and all of its events and sign-ups? This can't be undone.",
   "admin.calendars.mainBadge": "Main",
-  "admin.calendars.delete": "Delete calendar"
+  "admin.calendars.delete": "Delete calendar",
+  "dayPanel.viewSignups": "Who's signed up ▾",
+  "dayPanel.hideSignups": "Hide ▴"
 }

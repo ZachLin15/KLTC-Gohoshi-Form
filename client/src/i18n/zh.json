@@ -128,5 +128,7 @@
   "admin.calendars.save": "保存日历",
   "admin.calendars.deleteConfirm": "删除「{name}」及其所有活动与报名记录？此操作无法撤销。",
   "admin.calendars.mainBadge": "主日历",
-  "admin.calendars.delete": "删除日历"
+  "admin.calendars.delete": "删除日历",
+  "dayPanel.viewSignups": "查看报名情况 ▾",
+  "dayPanel.hideSignups": "收起 ▴"
 }

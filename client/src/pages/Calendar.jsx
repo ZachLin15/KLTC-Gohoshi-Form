@@ -226,6 +226,7 @@ export default function Calendar() {
               locale={locale}
               year={year}
               month={month}
+              calendarId={calendarId}
               loading={loading}
             />
           ) : !loadError ? (
@@ -326,7 +327,11 @@ function DayCell({ day, events, onSelect, onSelectDay, isSelected, pickLang, t }
 // actually have events — full-width rows mean event names don't need
 // truncating or a hover tooltip (which doesn't exist on touch anyway); the
 // full name is always visible, and tapping a row opens the same detail modal.
-function AgendaList({ total, eventsByDay, onSelect, pickLang, t, locale, year, month, loading }) {
+function AgendaList({ total, eventsByDay, onSelect, pickLang, t, locale, year, month, calendarId, loading }) {
+  const [rosterCache, setRosterCache] = useState({}); // { [day]: eventsWithNames[] }
+  const [rosterLoadingDay, setRosterLoadingDay] = useState(null);
+  const [expandedEventId, setExpandedEventId] = useState(null);
+
   const days = [];
   for (let d = 1; d <= total; d++) {
     if (eventsByDay[d] && eventsByDay[d].length > 0) days.push(d);
@@ -335,6 +340,25 @@ function AgendaList({ total, eventsByDay, onSelect, pickLang, t, locale, year, m
   if (days.length === 0) {
     if (loading) return null;
     return <p style={{ color: "var(--text-dim)", textAlign: "center", marginTop: 40 }}>{t("calendar.noEvents")}</p>;
+  }
+
+  async function toggleRoster(day, eventId) {
+    if (expandedEventId === eventId) {
+      setExpandedEventId(null);
+      return;
+    }
+    setExpandedEventId(eventId);
+    if (!rosterCache[day]) {
+      setRosterLoadingDay(day);
+      try {
+        const data = await api.getEventsForDay(year, month, day, calendarId);
+        setRosterCache((prev) => ({ ...prev, [day]: data }));
+      } catch {
+        // silently fail — the toggle just won't show names; the person can still tap the chip to sign up
+      } finally {
+        setRosterLoadingDay(null);
+      }
+    }
   }
 
   return (
@@ -352,19 +376,67 @@ function AgendaList({ total, eventsByDay, onSelect, pickLang, t, locale, year, m
             <div style={styles.agendaEvents}>
               {eventsByDay[d].map((e) => {
                 const colors = colorVars(e.color);
+                const isExpanded = expandedEventId === e.id;
+                const rosterEvent = rosterCache[d]?.find((re) => re.id === e.id);
                 return (
-                  <button
-                    key={e.id}
-                    onClick={() => onSelect(e)}
-                    style={{
-                      ...styles.agendaChip,
-                      background: colors.bg,
-                      borderColor: colors.line,
-                    }}
-                  >
-                    <span style={styles.eventTime}>{e.time}</span>
-                    <span style={styles.agendaEventName}>{pickLang(e, "name")}</span>
-                  </button>
+                  <div key={e.id} style={{ width: "100%" }}>
+                    <button
+                      onClick={() => onSelect(e)}
+                      style={{
+                        ...styles.agendaChip,
+                        background: colors.bg,
+                        borderColor: colors.line,
+                      }}
+                    >
+                      <span style={styles.eventTime}>{e.time}</span>
+                      <span style={styles.agendaEventName}>{pickLang(e, "name")}</span>
+                    </button>
+
+                    {e.needs_signup && (
+                      <button
+                        onClick={() => toggleRoster(d, e.id)}
+                        style={styles.rosterToggle}
+                      >
+                        {isExpanded ? t("dayPanel.hideSignups") : t("dayPanel.viewSignups")}
+                      </button>
+                    )}
+
+                    {isExpanded && (
+                      <div style={styles.rosterBox}>
+                        {rosterLoadingDay === d && !rosterEvent ? (
+                          <Spinner label={t("common.loading")} size={14} />
+                        ) : rosterEvent ? (
+                          rosterEvent.roles.length === 0 ? (
+                            <div style={styles.noSignupsSmall}>{t("event.noRoles")}</div>
+                          ) : (
+                            rosterEvent.roles.map((r) => (
+                              <div key={r.id} style={styles.rosterRole}>
+                                <div style={styles.rosterRoleHeader}>
+                                  <span>{pickLang(r, "name")}</span>
+                                  <span style={styles.rosterCount}>
+                                    {r.signup_count}/{r.limit_count}
+                                  </span>
+                                </div>
+                                {r.signups.length > 0 ? (
+                                  <div style={styles.nameChipsSmall}>
+                                    {r.signups.map((s, i) => (
+                                      <span key={i} style={styles.nameChipSmall}>
+                                        {s.name}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div style={styles.noSignupsSmall}>{t("dayPanel.noSignupsYet")}</div>
+                                )}
+                              </div>
+                            ))
+                          )
+                        ) : (
+                          <div style={styles.noSignupsSmall}>{t("dayPanel.error")}</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -580,5 +652,56 @@ const styles = {
     fontSize: "0.82rem",
     fontWeight: 600,
     color: "var(--ink)",
+  },
+  rosterToggle: {
+    border: "none",
+    background: "transparent",
+    color: "var(--gold)",
+    fontSize: "0.74rem",
+    fontWeight: 600,
+    cursor: "pointer",
+    padding: "3px 2px 6px",
+    display: "block",
+  },
+  rosterBox: {
+    background: "var(--paper-dim)",
+    borderRadius: 8,
+    padding: "8px 10px",
+    marginBottom: 6,
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  rosterRole: {},
+  rosterRoleHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    fontSize: "0.78rem",
+    fontWeight: 600,
+    color: "var(--ink)",
+    marginBottom: 3,
+  },
+  rosterCount: {
+    fontFamily: "var(--font-mono)",
+    fontWeight: 400,
+    color: "var(--text-dim)",
+  },
+  nameChipsSmall: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 4,
+  },
+  nameChipSmall: {
+    fontSize: "0.72rem",
+    background: "#fff",
+    border: "1px solid var(--line)",
+    borderRadius: 999,
+    padding: "2px 8px",
+    color: "var(--text)",
+  },
+  noSignupsSmall: {
+    fontSize: "0.74rem",
+    color: "var(--text-dim)",
+    fontStyle: "italic",
   },
 };
