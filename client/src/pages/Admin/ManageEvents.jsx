@@ -36,6 +36,10 @@ export default function ManageEvents({ calendarId }) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draftRoles, setDraftRoles] = useState([]);
+  const [editingSchedule, setEditingSchedule] = useState(false);
+  const [scheduleDraft, setScheduleDraft] = useState(null);
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [scheduleError, setScheduleError] = useState("");
   const [templates, setTemplates] = useState([]);
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState(() => new Set());
@@ -66,10 +70,12 @@ export default function ManageEvents({ calendarId }) {
       setExpanded(null);
       setDetail(null);
       setEditing(false);
+      setEditingSchedule(false);
       return;
     }
     setExpanded(id);
     setEditing(false);
+    setEditingSchedule(false);
     setDetail(null);
     setDetailLoading(true);
     try {
@@ -77,6 +83,34 @@ export default function ManageEvents({ calendarId }) {
       setDetail(d);
     } finally {
       setDetailLoading(false);
+    }
+  }
+
+  function startEditingSchedule() {
+    setScheduleDraft({
+      day: detail.day,
+      time: detail.time,
+      name_en: detail.name_en,
+      name_zh: detail.name_zh,
+      name_ja: detail.name_ja,
+      color: detail.color,
+    });
+    setScheduleError("");
+    setEditingSchedule(true);
+  }
+
+  async function saveSchedule() {
+    setSavingSchedule(true);
+    setScheduleError("");
+    try {
+      const updated = await api.adminRescheduleEvent(detail.id, scheduleDraft);
+      setDetail(updated);
+      setEditingSchedule(false);
+      load();
+    } catch (e) {
+      setScheduleError(e.message);
+    } finally {
+      setSavingSchedule(false);
     }
   }
 
@@ -89,6 +123,7 @@ export default function ManageEvents({ calendarId }) {
         limit_count: r.limit_count,
       }))
     );
+    setEditingSchedule(false);
     setEditing(true);
   }
 
@@ -497,8 +532,23 @@ export default function ManageEvents({ calendarId }) {
                     </div>
                   )}
 
-                  {isOpen && detail && detail.id === e.id && !isEditingThis && (
+                  {isOpen && detail && detail.id === e.id && !isEditingThis && !editingSchedule && (
                     <div style={styles.rolesPanel}>
+                      <div style={styles.scheduleSummary}>
+                        <div>
+                          <span style={styles.scheduleSummaryDate}>{detail.day}</span>{" "}
+                          <span style={styles.scheduleSummaryTime}>{detail.time}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          style={{ padding: "5px 12px", fontSize: "0.78rem" }}
+                          onClick={startEditingSchedule}
+                        >
+                          {t("admin.events.editSchedule")}
+                        </button>
+                      </div>
+
                       {detail.roles.length === 0 && (
                         <p style={{ color: "var(--text-dim)", fontSize: "0.85rem", margin: 0 }}>
                           No roles yet.
@@ -539,6 +589,66 @@ export default function ManageEvents({ calendarId }) {
                           ? "+ " + t("admin.templates.addRole")
                           : t("admin.events.edit") + " " + t("admin.events.roles").toLowerCase()}
                       </button>
+                    </div>
+                  )}
+
+                  {isOpen && editingSchedule && scheduleDraft && (
+                    <div style={styles.rolesPanel}>
+                      <p style={styles.scheduleHint}>{t("admin.events.editScheduleHint")}</p>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                        <input
+                          type="number"
+                          min={1}
+                          max={31}
+                          value={scheduleDraft.day}
+                          onChange={(ev) => setScheduleDraft({ ...scheduleDraft, day: Number(ev.target.value) })}
+                          style={{ width: 56 }}
+                          title={t("admin.review.day")}
+                        />
+                        <input
+                          value={scheduleDraft.time}
+                          onChange={(ev) => setScheduleDraft({ ...scheduleDraft, time: ev.target.value })}
+                          style={{ width: 80 }}
+                          placeholder="10:00"
+                        />
+                        <select
+                          value={scheduleDraft.color}
+                          onChange={(ev) => setScheduleDraft({ ...scheduleDraft, color: ev.target.value })}
+                          style={{ width: 100 }}
+                        >
+                          {COLOR_OPTIONS.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+                        <input
+                          value={scheduleDraft.name_en}
+                          onChange={(ev) => setScheduleDraft({ ...scheduleDraft, name_en: ev.target.value })}
+                          placeholder={t("admin.review.nameEn")}
+                        />
+                        <input
+                          value={scheduleDraft.name_zh}
+                          onChange={(ev) => setScheduleDraft({ ...scheduleDraft, name_zh: ev.target.value })}
+                          placeholder={t("admin.review.nameZh")}
+                        />
+                        <input
+                          value={scheduleDraft.name_ja}
+                          onChange={(ev) => setScheduleDraft({ ...scheduleDraft, name_ja: ev.target.value })}
+                          placeholder={t("admin.review.nameJa")}
+                        />
+                      </div>
+                      {scheduleError && <p style={{ color: "#b3453f", fontSize: "0.82rem" }}>{scheduleError}</p>}
+                      <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                        <button className="btn btn-gold" disabled={savingSchedule} onClick={saveSchedule}>
+                          {savingSchedule ? t("admin.review.saving") : t("admin.events.saveChanges")}
+                        </button>
+                        <button className="btn btn-ghost" onClick={() => setEditingSchedule(false)}>
+                          {t("common.cancel")}
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -600,7 +710,7 @@ export default function ManageEvents({ calendarId }) {
 
                       <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
                         <button className="btn btn-gold" disabled={saving} onClick={saveRoles}>
-                          {saving ? t("admin.review.saving") : t("admin.templates.save")}
+                          {saving ? t("admin.review.saving") : t("admin.events.saveChanges")}
                         </button>
                         <button className="btn btn-ghost" onClick={() => setEditing(false)}>
                           {t("common.cancel")}
@@ -619,6 +729,27 @@ export default function ManageEvents({ calendarId }) {
 }
 
 const styles = {
+  scheduleSummary: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  scheduleSummaryDate: {
+    fontFamily: "var(--font-mono)",
+    fontWeight: 700,
+    color: "var(--ink)",
+  },
+  scheduleSummaryTime: {
+    fontFamily: "var(--font-mono)",
+    color: "var(--text-dim)",
+    fontSize: "0.85rem",
+  },
+  scheduleHint: {
+    fontSize: "0.8rem",
+    color: "var(--text-dim)",
+    margin: "0 0 4px",
+  },
   headerRow: {
     display: "flex",
     alignItems: "center",

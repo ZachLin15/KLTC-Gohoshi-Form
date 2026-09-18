@@ -130,5 +130,8 @@
   "admin.calendars.mainBadge": "主日历",
   "admin.calendars.delete": "删除日历",
   "dayPanel.viewSignups": "查看报名情况 ▾",
-  "dayPanel.hideSignups": "收起 ▴"
+  "dayPanel.hideSignups": "收起 ▴",
+  "admin.events.editSchedule": "编辑日期/时间",
+  "admin.events.editScheduleHint": "在此修改日期、时间或名称，不会影响现有的职位与报名记录。",
+  "admin.events.saveChanges": "保存更改"
 }

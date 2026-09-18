@@ -130,5 +130,8 @@
   "admin.calendars.mainBadge": "Main",
   "admin.calendars.delete": "Delete calendar",
   "dayPanel.viewSignups": "Who's signed up ▾",
-  "dayPanel.hideSignups": "Hide ▴"
+  "dayPanel.hideSignups": "Hide ▴",
+  "admin.events.editSchedule": "Edit date/time",
+  "admin.events.editScheduleHint": "Changing the date, time, or name here won't affect existing roles or sign-ups.",
+  "admin.events.saveChanges": "Save changes"
 }

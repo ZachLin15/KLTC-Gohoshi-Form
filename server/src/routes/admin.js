@@ -395,6 +395,46 @@ router.post(
   })
 );
 
+// Lightweight reschedule — updates ONLY day/time/name/color, and never
+// touches event_roles or signups at all. This exists specifically so an
+// admin can move an event to a different date/time without the full
+// PUT /events/:id below wiping every sign-up in the process (that endpoint
+// always deletes and recreates all roles, which cascades to delete their
+// sign-ups, even when the roles themselves didn't change).
+router.put(
+  "/events/:id/schedule",
+  h(async (req, res) => {
+    const { id } = req.params;
+    const existing = await client.execute({ sql: "SELECT id FROM events WHERE id = ?", args: [id] });
+    if (!existing.rows[0]) return res.status(404).json({ error: "Event not found" });
+
+    const { day, time, name_en, name_zh, name_ja, color } = req.body || {};
+    const dayNum = Number(day);
+    if (!Number.isInteger(dayNum) || dayNum < 1 || dayNum > 31) {
+      return res.status(400).json({ error: `Invalid day (${JSON.stringify(day)}). Please set a valid date (1-31).` });
+    }
+
+    await client.execute({
+      sql: `UPDATE events SET day=?, time=?, name_en=?, name_zh=?, name_ja=?, color=? WHERE id=?`,
+      args: [
+        dayNum,
+        normalizeTime(time),
+        name_en || "",
+        name_zh || "",
+        name_ja || "",
+        color || "yellow",
+        id,
+      ],
+    });
+
+    const eRes = await client.execute({ sql: "SELECT * FROM events WHERE id = ?", args: [id] });
+    const event = eRes.rows[0];
+    await attachRoles([event]); // roles + their existing signups, untouched
+    cache.clear();
+    res.json(event);
+  })
+);
+
 router.put(
   "/events/:id",
   h(async (req, res) => {

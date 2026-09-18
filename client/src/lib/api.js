@@ -73,6 +73,8 @@ export const api = {
     request(`/admin/events/bulk`, { method: "POST", body: JSON.stringify(payload) }),
   adminUpdateEvent: (id, payload) =>
     request(`/admin/events/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+  adminRescheduleEvent: (id, payload) =>
+    request(`/admin/events/${id}/schedule`, { method: "PUT", body: JSON.stringify(payload) }),
   adminDeleteEvent: (id) => request(`/admin/events/${id}`, { method: "DELETE" }),
   adminBulkDeleteEvents: (ids) =>
     request(`/admin/events/bulk-delete`, { method: "POST", body: JSON.stringify({ ids }) }),
