@@ -1,8 +1,11 @@
-// In dev, Vite proxies /api to the local server (see vite.config.js).
-// In production the client is a static site on a different origin than the
-// API, so VITE_API_URL must be set at build time to the deployed server's
-// full URL, e.g. https://kltc-signup-api.onrender.com/api
-const BASE = import.meta.env.VITE_API_URL || "/api";
+// Always same-origin: in dev, Vite proxies /api to the local server (see
+// vite.config.js); in production, Render's static-site rewrite proxies
+// /api/* through to the deployed API service (see render.yaml). Keeping
+// this same-origin (rather than pointing at the API's own onrender.com
+// subdomain) is what makes the admin session cookie a first-party cookie —
+// Safari/iOS blocks cross-site cookies by default, which broke admin login
+// on iPhone when this was cross-origin.
+const BASE = "/api";
 
 async function request(path, options = {}) {
   const res = await fetch(BASE + path, {

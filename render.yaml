@@ -13,11 +13,21 @@
 # `fromService ... property: host` only gives the bare subdomain (e.g.
 # "kltc-signup-api"), not the full URL. Rather than trying to build the full
 # URL via shell string interpolation in a start/build command (Render's
-# dockerCommand doesn't reliably support that), each service reads the bare
-# host from a plain env var and builds the full URL itself: the API in
-# src/index.js (CLIENT_HOST -> CLIENT_ORIGIN), the client in
-# scripts/prepare-env.js (API_HOST -> VITE_API_URL, written to
-# .env.production before `vite build` runs).
+# dockerCommand doesn't reliably support that), the API service reads the
+# bare host from a plain env var and builds the full URL itself
+# (src/index.js: CLIENT_HOST -> CLIENT_ORIGIN).
+#
+# The client talks to the API through a same-origin proxy (the /api/*
+# rewrite below), not directly cross-origin. This is deliberate: the two
+# services live on different onrender.com subdomains, which browsers treat
+# as different *sites*. Safari (and Chrome-on-iOS, which is also WebKit)
+# blocks third-party/cross-site cookies by default via Intelligent Tracking
+# Prevention, so the admin session cookie was silently never being stored
+# on iPhone even though the CORS/cookie config itself was spec-correct —
+# admin login would appear to succeed and then immediately act logged out.
+# Proxying /api/* through the client's own origin makes every request
+# same-origin from the browser's point of view, which sidesteps ITP
+# entirely and works identically in every browser.
 
 services:
   - type: web
@@ -49,16 +59,15 @@ services:
     name: kltc-signup-client
     runtime: static
     rootDir: ./client
-    buildCommand: npm install && node scripts/prepare-env.cjs && npm run build
+    buildCommand: npm install && npm run build
     staticPublishPath: ./dist
     autoDeploy: true
-    envVars:
-      - key: API_HOST
-        fromService:
-          type: web
-          name: kltc-signup-api
-          property: host
     routes:
+      # Proxy same-origin /api/* through to the API service (see note above
+      # on why this exists — it must come before the catch-all SPA rewrite).
+      - type: rewrite
+        source: /api/*
+        destination: https://kltc-signup-api.onrender.com/api/*
       - type: rewrite
         source: /*
         destination: /index.html

@@ -43,9 +43,14 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      // cross-domain cookies (client and server on different Render URLs) require
-      // SameSite=None + Secure in production; localhost dev keeps the simpler "lax"
-      sameSite: IS_PROD ? "none" : "lax",
+      // The browser only ever talks to the client's own origin — Render's
+      // static-site rewrite proxies /api/* through to this service
+      // server-side (see render.yaml) — so this cookie is always first-party
+      // from the browser's point of view, in dev and in production. Plain
+      // "lax" works everywhere and, unlike "none", isn't silently dropped by
+      // Safari/iOS's third-party-cookie blocking (which is what broke admin
+      // login on iPhone when the client called the API cross-origin).
+      sameSite: "lax",
       secure: IS_PROD,
       maxAge: 1000 * 60 * 60 * 8, // 8 hours
     },
