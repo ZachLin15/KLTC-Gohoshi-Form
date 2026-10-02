@@ -78,7 +78,10 @@ router.post("/login", (req, res) => {
 });
 
 router.post("/logout", (req, res) => {
-  req.session.destroy(() => res.json({ ok: true }));
+  // cookie-session has no .destroy() (there's no server-side store to clear)
+  // — setting the session to null tells it to expire the cookie instead.
+  req.session = null;
+  res.json({ ok: true });
 });
 
 router.get("/me", (req, res) => {

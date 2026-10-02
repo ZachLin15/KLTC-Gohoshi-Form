@@ -1,7 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const session = require("express-session");
+const cookieSession = require("cookie-session");
 
 const publicRoutes = require("./routes/public");
 const adminRoutes = require("./routes/admin");
@@ -35,25 +35,30 @@ app.use(
   })
 );
 app.use(express.json({ limit: "2mb" }));
+// cookie-session (not express-session + MemoryStore): the only thing this
+// app's session ever holds is one boolean (isAdmin), so there's no need for
+// server-side session storage at all — the signed cookie itself IS the
+// session. This matters on Render's free tier specifically: the API
+// container spins down after ~15 minutes idle and restarts on the next
+// request, which would silently wipe an in-memory session store and 401 an
+// admin who was logged in a moment ago ("Not authenticated" mid-task, even
+// right after a successful login). A cookie-based session has nothing to
+// lose on restart.
 app.use(
-  session({
+  cookieSession({
     name: "kltc.sid",
-    secret: process.env.SESSION_SECRET || "change-me-in-.env",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      // The browser only ever talks to the client's own origin — Render's
-      // static-site rewrite proxies /api/* through to this service
-      // server-side (see render.yaml) — so this cookie is always first-party
-      // from the browser's point of view, in dev and in production. Plain
-      // "lax" works everywhere and, unlike "none", isn't silently dropped by
-      // Safari/iOS's third-party-cookie blocking (which is what broke admin
-      // login on iPhone when the client called the API cross-origin).
-      sameSite: "lax",
-      secure: IS_PROD,
-      maxAge: 1000 * 60 * 60 * 8, // 8 hours
-    },
+    keys: [process.env.SESSION_SECRET || "change-me-in-.env"],
+    httpOnly: true,
+    // The browser only ever talks to the client's own origin — Render's
+    // static-site rewrite proxies /api/* through to this service
+    // server-side (see render.yaml) — so this cookie is always first-party
+    // from the browser's point of view, in dev and in production. Plain
+    // "lax" works everywhere and, unlike "none", isn't silently dropped by
+    // Safari/iOS's third-party-cookie blocking (which is what broke admin
+    // login on iPhone when the client called the API cross-origin).
+    sameSite: "lax",
+    secure: IS_PROD,
+    maxAge: 1000 * 60 * 60 * 8, // 8 hours
   })
 );
 

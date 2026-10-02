@@ -10,10 +10,10 @@
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",
+    "cookie-session": "^2.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
-    "express-session": "^1.18.0",
     "multer": "^1.4.5-lts.1"
   }
 }
