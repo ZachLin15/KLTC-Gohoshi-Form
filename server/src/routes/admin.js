@@ -5,7 +5,7 @@ const fs = require("fs");
 const { client } = require("../db");
 const { attachRoles } = require("../services/roles");
 const cache = require("../services/cache");
-const { checkPassword, requireAdmin } = require("../middleware/adminAuth");
+const { checkPassword, createAdminToken, verifyAdminToken, getBearerToken, requireAdmin } = require("../middleware/adminAuth");
 const { parsePdf } = require("../services/pdfParser");
 
 const router = express.Router();
@@ -68,24 +68,24 @@ function validateEventInput(e, index) {
 }
 
 // ---------- auth ----------
+// Bearer-token auth, not cookies — see middleware/adminAuth.js for why.
 router.post("/login", (req, res) => {
   const { password } = req.body || {};
   if (checkPassword(password)) {
-    req.session.isAdmin = true;
-    return res.json({ ok: true });
+    return res.json({ ok: true, token: createAdminToken() });
   }
   res.status(401).json({ error: "Incorrect password" });
 });
 
-router.post("/logout", (req, res) => {
-  // cookie-session has no .destroy() (there's no server-side store to clear)
-  // — setting the session to null tells it to expire the cookie instead.
-  req.session = null;
+// Stateless token — there's nothing server-side to clear. The client drops
+// it from localStorage; this endpoint exists just so that flow has
+// something to call.
+router.post("/logout", (_req, res) => {
   res.json({ ok: true });
 });
 
 router.get("/me", (req, res) => {
-  res.json({ isAdmin: !!(req.session && req.session.isAdmin) });
+  res.json({ isAdmin: verifyAdminToken(getBearerToken(req)) });
 });
 
 // everything below requires admin session

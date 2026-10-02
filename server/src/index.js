@@ -1,7 +1,6 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const cookieSession = require("cookie-session");
 
 const publicRoutes = require("./routes/public");
 const adminRoutes = require("./routes/admin");
@@ -10,7 +9,6 @@ const { seedIfEmpty } = require("./db/seed");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
-const IS_PROD = process.env.NODE_ENV === "production";
 // comma-separated list of allowed origins, e.g. "https://kltc.onrender.com,https://kltc-signup.org"
 // CLIENT_HOST is set by render.yaml (via fromService) to the client's bare
 // onrender.com subdomain; CLIENT_ORIGIN (a full URL) takes precedence if set.
@@ -22,8 +20,13 @@ const CLIENT_ORIGINS = (
   .map((s) => s.trim())
   .filter(Boolean);
 
-app.set("trust proxy", 1); // Render sits behind a proxy; needed for secure cookies
+app.set("trust proxy", 1); // Render sits behind a proxy
 
+// No cookies anywhere in this app — admin auth is a bearer token in the
+// Authorization header (see middleware/adminAuth.js), specifically so it
+// doesn't depend on same-origin or on Safari/iOS allowing a cross-site
+// cookie. So CORS here doesn't need `credentials: true` either; it just
+// needs to allow the client's origin to call a cross-origin API at all.
 app.use(
   cors({
     origin(origin, cb) {
@@ -31,36 +34,9 @@ app.use(
       if (!origin || CLIENT_ORIGINS.includes(origin)) return cb(null, true);
       cb(new Error("Not allowed by CORS"));
     },
-    credentials: true,
   })
 );
 app.use(express.json({ limit: "2mb" }));
-// cookie-session (not express-session + MemoryStore): the only thing this
-// app's session ever holds is one boolean (isAdmin), so there's no need for
-// server-side session storage at all — the signed cookie itself IS the
-// session. This matters on Render's free tier specifically: the API
-// container spins down after ~15 minutes idle and restarts on the next
-// request, which would silently wipe an in-memory session store and 401 an
-// admin who was logged in a moment ago ("Not authenticated" mid-task, even
-// right after a successful login). A cookie-based session has nothing to
-// lose on restart.
-app.use(
-  cookieSession({
-    name: "kltc.sid",
-    keys: [process.env.SESSION_SECRET || "change-me-in-.env"],
-    httpOnly: true,
-    // The browser only ever talks to the client's own origin — Render's
-    // static-site rewrite proxies /api/* through to this service
-    // server-side (see render.yaml) — so this cookie is always first-party
-    // from the browser's point of view, in dev and in production. Plain
-    // "lax" works everywhere and, unlike "none", isn't silently dropped by
-    // Safari/iOS's third-party-cookie blocking (which is what broke admin
-    // login on iPhone when the client called the API cross-origin).
-    sameSite: "lax",
-    secure: IS_PROD,
-    maxAge: 1000 * 60 * 60 * 8, // 8 hours
-  })
-);
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 

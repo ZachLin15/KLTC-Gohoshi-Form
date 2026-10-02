@@ -49,13 +49,13 @@ export default function Report({ calendarId }) {
             </option>
           ))}
         </select>
-        <a
-          href={api.adminReportCsvUrl(year, month, calendarId)}
+        <button
           className="btn btn-gold"
-          style={{ marginLeft: "auto", textDecoration: "none" }}
+          style={{ marginLeft: "auto" }}
+          onClick={() => api.adminDownloadReportCsv(year, month, calendarId).catch(() => {})}
         >
           ⬇ Download CSV
-        </a>
+        </button>
       </div>
 
       {!loading && (

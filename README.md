@@ -120,26 +120,27 @@ restart, but an external database isn't affected by that.
 
 ### A few things about the Blueprint
 
-- The client calls the API through a same-origin proxy: the client static
-  site rewrites `/api/*` to the API service's URL server-side (see
-  `render.yaml`), so the browser only ever talks to the client's own
-  `.onrender.com` origin. This is deliberate, not just simpler config —
-  the two services live on different `onrender.com` subdomains, which
-  Safari (and Chrome on iOS, which is also WebKit) treats as different
-  *sites* and blocks cookies between by default. Without the proxy, the
-  admin session cookie would silently never get stored on iPhone: login
-  would appear to succeed and then every subsequent admin request would
-  come back logged-out. `CLIENT_ORIGIN` (server) is still wired up
-  automatically via Render's cross-service references, for CORS.
+- The client calls the API directly at its own `.onrender.com` URL —
+  cross-origin, plain CORS (`CLIENT_ORIGIN` on the API is wired up
+  automatically via Render's cross-service references). This is safe to do
+  because **admin auth is a bearer token, not a cookie**: the client and API
+  live on two different `onrender.com` subdomains, which Safari (and Chrome
+  on iOS, which is also WebKit) treats as different *sites* and blocks
+  cookies between by default. A cookie-based session would silently never
+  get stored on iPhone — login would appear to succeed and then every
+  subsequent admin request would come back logged-out. A token read from a
+  request header has no such restriction in any browser, so there's nothing
+  same-origin-specific to get right on the hosting side.
+  If you ever point the client at a different API URL, set it via
+  `VITE_API_URL` at build time (see `client/src/lib/api.js`) rather than
+  editing the hardcoded default.
 - If you'd rather not use the Blueprint, you can create the two services by
   hand: a **Web Service** for `server/` (choose "Docker" as the runtime,
   free plan, and set `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN`/
   `ADMIN_PASSWORD`/`SESSION_SECRET`), and a **Static Site** for `client/`
   (build command `npm install && npm run build`, publish directory `dist`).
-  In that case, set `CLIENT_ORIGIN` on the API manually, and add the
-  `/api/*` rewrite route to the static site pointing at your API's
-  `.onrender.com` URL — keep the client itself talking to the relative
-  `/api` path rather than the API's own origin, for the reason above.
+  In that case, set `CLIENT_ORIGIN` on the API manually and `VITE_API_URL`
+  on the client at build time once you know both services' URLs.
 - Custom domain: add it in the client static site's Settings, then add its
   URL to `CLIENT_ORIGIN` on the API service (comma-separated if you keep
   the onrender.com URL too).
@@ -152,12 +153,11 @@ restart, but an external database isn't affected by that.
   host supports Docker deploys). If the host gives you a real persistent
   disk, you can skip Turso entirely and just set `DB_URL=file:/path/on/that/disk/data.sqlite`;
   otherwise point it at Turso the same way as the Render setup above.
-- **Client**: `npm run build` in `client/` produces static files in
-  `client/dist/`. The client always calls the relative `/api` path, so
-  whatever serves those static files needs to proxy `/api/*` through to
-  your deployed server (same-origin — see the note above on why). Most
-  static hosts (Render, Netlify, Vercel, Cloudflare Pages) support this via
-  a rewrite/proxy rule in their config.
+- **Client**: `npm run build` in `client/` (with `VITE_API_URL` set to your
+  deployed server's `/api` URL) produces static files in `client/dist/`
+  that can be served by any static host — no proxy/rewrite config needed,
+  since the client calls the API cross-origin directly (see the note above
+  on why that's fine here).
 
 ## Notes / things to double check
 
