@@ -133,5 +133,6 @@
   "dayPanel.hideSignups": "Hide ▴",
   "admin.events.editSchedule": "Edit date/time",
   "admin.events.editScheduleHint": "Changing the date, time, or name here won't affect existing roles or sign-ups.",
-  "admin.events.saveChanges": "Save changes"
+  "admin.events.saveChanges": "Save changes",
+  "admin.loginNetworkError": "Couldn't reach the server — it may be waking up. Wait a few seconds and try again."
 }

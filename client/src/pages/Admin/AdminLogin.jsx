@@ -15,8 +15,10 @@ export default function AdminLogin({ onLoggedIn }) {
     try {
       await api.adminLogin(password);
       onLoggedIn();
-    } catch {
-      setError(t("admin.wrongPassword"));
+    } catch (err) {
+      // Only a 401 means the password was wrong — a timeout or network
+      // failure (e.g. the server waking from sleep) is a different problem.
+      setError(err && err.status === 401 ? t("admin.wrongPassword") : t("admin.loginNetworkError"));
     } finally {
       setLoading(false);
     }
@@ -43,7 +45,7 @@ export default function AdminLogin({ onLoggedIn }) {
         />
         {error && <div style={{ color: "#b3453f", fontSize: "0.85rem", marginTop: 8 }}>{error}</div>}
         <button className="btn btn-gold" disabled={loading} style={{ marginTop: 16, width: "100%" }}>
-          {t("admin.signIn")}
+          {loading ? t("common.loading") : t("admin.signIn")}
         </button>
       </form>
     </div>

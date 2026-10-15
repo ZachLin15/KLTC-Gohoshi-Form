@@ -133,5 +133,6 @@
   "dayPanel.hideSignups": "收起 ▴",
   "admin.events.editSchedule": "编辑日期/时间",
   "admin.events.editScheduleHint": "在此修改日期、时间或名称，不会影响现有的职位与报名记录。",
-  "admin.events.saveChanges": "保存更改"
+  "admin.events.saveChanges": "保存更改",
+  "admin.loginNetworkError": "无法连接服务器——可能正在唤醒中，请稍等几秒后重试。"
 }

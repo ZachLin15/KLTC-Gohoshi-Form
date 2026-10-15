@@ -133,5 +133,6 @@
   "dayPanel.hideSignups": "閉じる ▴",
   "admin.events.editSchedule": "日付・時間を編集",
   "admin.events.editScheduleHint": "ここで日付・時間・名称を変更しても、既存の役割や申し込みには影響しません。",
-  "admin.events.saveChanges": "変更を保存"
+  "admin.events.saveChanges": "変更を保存",
+  "admin.loginNetworkError": "サーバーに接続できません。起動中の可能性があります。数秒待ってからもう一度お試しください。"
 }

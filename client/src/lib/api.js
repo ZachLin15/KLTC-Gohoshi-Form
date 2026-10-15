@@ -35,7 +35,9 @@ function setToken(token) {
 // sleeping Render free-tier service that never finishes waking, or a
 // misrouted response can otherwise leave the UI stuck on a spinner with no
 // way to recover short of reloading the page.
-const REQUEST_TIMEOUT_MS = 20_000;
+// Long enough to outlast a Render free-tier cold start (30-60s), short enough
+// that a truly dead connection still surfaces as an error.
+const REQUEST_TIMEOUT_MS = 75_000;
 
 async function request(path, options = {}) {
   const token = getToken();
